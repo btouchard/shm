@@ -1,0 +1,378 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHM Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gray: { 750: '#2d3748', 850: '#1a202c', 900: '#171923', 950: '#0d1117' },
+                        primary: { 500: '#6366f1', 600: '#4f46e5' }
+                    },
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                    animation: { 'fade-in': 'fadeIn 0.5s ease-out' },
+                    keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0d1117; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="bg-gray-950 text-gray-200 font-sans antialiased overflow-y-scroll" x-data="dashboard()">
+
+<nav class="fixed top-0 w-full z-40 bg-gray-950/80 backdrop-blur-md border-b border-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex h-16 items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-primary-500/10 p-2 rounded-lg border border-primary-500/20">
+                    <i class="ph-bold ph-chart-polar text-xl text-primary-500"></i>
+                </div>
+                <span class="font-bold text-lg tracking-tight text-white">SHM <span class="text-gray-500 font-medium">Hub</span></span>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="hidden md:flex flex-col items-end mr-2">
+                    <span class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Active Instances</span>
+                    <div class="text-sm font-bold text-white flex items-center gap-2">
+                            <span class="relative flex h-2 w-2">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                        <span x-text="stats.active_instances">0</span>
+                    </div>
+                </div>
+                <button @click="fetchData()" class="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
+                    <i class="ph-bold ph-arrows-clockwise text-xl" :class="{'animate-spin': loading}"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<main class="pt-24 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+    <template x-for="(group, appName) in groupedInstances" :key="appName">
+        <section class="mb-16 animate-fade-in">
+
+            <div class="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center shadow-inner">
+                        <span class="text-lg font-bold text-indigo-400" x-text="appName.charAt(0).toUpperCase()"></span>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-white" x-text="appName"></h2>
+                        <div class="text-xs text-gray-500 flex gap-2">
+                            <span x-text="group.instances.length + ' instances'"></span> &bull;
+                            <span x-text="'Updated ' + timeAgo(group.lastSeenGlobal)"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+                <template x-for="key in group.businessKeys" :key="key">
+                    <div class="bg-gray-900/50 hover:bg-gray-800 transition-colors rounded-lg p-3 border border-gray-800 group">
+                        <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest truncate mb-1" x-text="formatKey(key)"></p>
+                        <div class="flex justify-between items-end">
+                            <p class="text-xl font-bold text-white font-mono" x-text="formatNumber(group.sums[key])"></p>
+                            <div class="h-1 w-8 bg-gray-700 rounded-full overflow-hidden group-hover:bg-primary-500/30 transition-colors">
+                                <div class="h-full bg-primary-500 w-2/3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <div class="bg-gray-900 border border-gray-800 rounded-xl shadow-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead>
+                        <tr class="bg-gray-850 border-b border-gray-800 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                            <th class="px-5 py-3 w-48">Instance</th>
+                            <th class="px-5 py-3 w-32">Context</th>
+
+                            <template x-for="key in group.businessKeys" :key="key">
+                                <th class="px-5 py-3 text-right text-indigo-300" x-text="formatKey(key)"></th>
+                            </template>
+
+                            <th class="px-5 py-3 text-right w-24">Seen</th>
+                        </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800/50">
+                        <template x-for="inst in group.instances" :key="inst.instance_id">
+                            <tr class="hover:bg-gray-800/40 transition-colors cursor-pointer group" @click="openDrawer(inst, group.resourceKeys)">
+
+                                <td class="px-5 py-3">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-1.5 h-1.5 rounded-full" :class="inst.status === 'active' ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-red-500'"></div>
+                                        <span class="font-mono text-gray-300 text-xs" x-text="inst.instance_id.substring(0,8)"></span>
+                                    </div>
+                                    <div class="pl-3.5 mt-1 flex items-center gap-2">
+                                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-400" x-text="'v'+inst.app_version"></span>
+                                        <template x-for="tagKey in group.stringKeys" :key="tagKey">
+                                            <i x-show="inst.metrics && inst.metrics[tagKey] && getIconForTag(inst.metrics[tagKey]) !== 'ph-tag'"
+                                               class="ph-fill text-xs text-gray-600" :class="getIconForTag(inst.metrics[tagKey])"></i>
+                                        </template>
+                                    </div>
+                                </td>
+
+                                <td class="px-5 py-3">
+                                    <div class="text-gray-300 text-xs font-medium" x-text="inst.environment"></div>
+                                    <div class="text-[9px] text-gray-500 uppercase" x-text="inst.deployment_mode"></div>
+                                </td>
+
+                                <template x-for="key in group.businessKeys" :key="key">
+                                    <td class="px-5 py-3 text-right font-mono text-sm text-gray-200">
+                                                <span x-text="inst.metrics && inst.metrics[key] !== undefined ? formatNumber(inst.metrics[key]) : '-'"
+                                                      :class="{'text-gray-700': inst.metrics && inst.metrics[key] === undefined}"></span>
+                                    </td>
+                                </template>
+
+                                <td class="px-5 py-3 text-right">
+                                    <span class="text-xs text-gray-500" x-text="timeAgo(inst.last_seen_at)"></span>
+                                </td>
+                            </tr>
+                        </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </template>
+
+    <div x-show="Object.keys(groupedInstances).length === 0 && !loading" x-cloak class="flex flex-col items-center justify-center py-20 text-gray-600">
+        <i class="ph-duotone ph-ghost text-4xl mb-4"></i>
+        <p>Waiting for data...</p>
+    </div>
+</main>
+
+<div x-cloak x-show="selectedInstance" class="fixed inset-0 z-50 flex justify-end">
+    <div @click="selectedInstance = null" class="absolute inset-0 bg-black/70 backdrop-blur-[2px] transition-opacity"></div>
+
+    <div class="relative w-full max-w-lg bg-gray-950 border-l border-gray-800 h-full shadow-2xl flex flex-col animate-fade-in transform transition-transform">
+
+        <div x-show="selectedInstance" class="flex flex-col h-full">
+            <div class="px-6 py-5 border-b border-gray-800 bg-gray-900 flex justify-between items-start">
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <h3 class="text-xl font-bold text-white font-mono tracking-tight" x-text="selectedInstance?.instance_id"></h3>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border"
+                              :class="selectedInstance?.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'"
+                              x-text="selectedInstance?.status"></span>
+                    </div>
+                    <p class="text-sm text-gray-400" x-text="selectedInstance?.app_name + ' v' + selectedInstance?.app_version"></p>
+                </div>
+                <button @click="selectedInstance = null" class="text-gray-500 hover:text-white bg-gray-800 hover:bg-gray-700 p-2 rounded-lg transition"><i class="ph-bold ph-x text-lg"></i></button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1 space-y-8">
+
+                <div>
+                    <h4 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <i class="ph-bold ph-cpu"></i> System Health & Resources
+                    </h4>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <template x-for="rKey in currentResourceKeys" :key="rKey">
+                            <div class="bg-gray-900 border border-gray-800 p-3 rounded-lg flex flex-col"
+                                 x-show="selectedInstance.metrics && selectedInstance.metrics[rKey] !== undefined">
+                                <span class="text-[10px] text-gray-500 font-bold uppercase mb-1" x-text="formatResourceKey(rKey)"></span>
+                                <div class="flex items-end justify-between">
+                                    <span class="text-lg font-mono text-gray-200" x-text="formatNumber(selectedInstance.metrics[rKey])"></span>
+                                    <i class="ph-fill text-gray-700 text-lg" :class="getResourceIcon(rKey)"></i>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="!currentResourceKeys || currentResourceKeys.length === 0" class="col-span-2 text-xs text-gray-600 italic">
+                            No system metrics available.
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <i class="ph-bold ph-hard-drives"></i> Environment Details
+                    </h4>
+                    <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-3 text-sm">
+                        <div class="flex justify-between border-b border-gray-800 pb-2">
+                            <span class="text-gray-500">Mode</span>
+                            <span class="text-gray-300" x-text="selectedInstance?.deployment_mode"></span>
+                        </div>
+                        <div class="flex justify-between border-b border-gray-800 pb-2">
+                            <span class="text-gray-500">Environment</span>
+                            <span class="text-gray-300" x-text="selectedInstance?.environment"></span>
+                        </div>
+                        <template x-for="(val, key) in selectedInstance?.metrics" :key="key">
+                            <div class="flex justify-between border-b border-gray-800 last:border-0 pb-2 last:pb-0" x-show="typeof val === 'string'">
+                                <span class="text-gray-500" x-text="formatKey(key)"></span>
+                                <span class="text-indigo-300 font-mono text-xs" x-text="val"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <i class="ph-bold ph-code"></i> JSON Payload
+                    </h4>
+                    <div class="bg-gray-950 rounded border border-gray-800 font-mono text-[10px] text-gray-400 overflow-hidden">
+                        <table class="w-full">
+                            <tbody class="divide-y divide-gray-800">
+                            <template x-for="(val, key) in selectedInstance?.metrics" :key="key">
+                                <tr class="hover:bg-gray-900/50">
+                                    <td class="py-2 px-3 text-gray-500 border-r border-gray-800 w-1/3" x-text="key"></td>
+                                    <td class="py-2 px-3 break-all text-gray-300" x-text="val"></td>
+                                </tr>
+                            </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function dashboard() {
+        return {
+            loading: false,
+            stats: { total_instances: 0, active_instances: 0 },
+            rawInstances: [],
+            groupedInstances: {},
+            selectedInstance: null,
+            currentResourceKeys: [],
+
+            init() {
+                this.fetchData();
+                setInterval(() => this.fetchData(), 5000);
+            },
+
+            openDrawer(inst, resourceKeys) {
+                this.selectedInstance = inst;
+                this.currentResourceKeys = resourceKeys || [];
+            },
+
+            async fetchData() {
+                this.loading = true;
+                try {
+                    const [resStats, resList] = await Promise.all([
+                        fetch('/api/v1/admin/stats'),
+                        fetch('/api/v1/admin/instances')
+                    ]);
+                    this.stats = await resStats.json();
+                    this.rawInstances = await resList.json();
+                    this.processData();
+                } catch (e) { console.error(e); } finally { this.loading = false; }
+            },
+
+            processData() {
+                const groups = {};
+                this.rawInstances.forEach(inst => {
+                    const appName = inst.app_name || "Unknown App";
+                    if (!groups[appName]) {
+                        groups[appName] = {
+                            instances: [],
+                            businessKeys: new Set(),
+                            resourceKeys: new Set(),
+                            stringKeys: new Set(),
+                            sums: {},
+                            lastSeenGlobal: null
+                        };
+                    }
+
+                    const d = new Date(inst.last_seen_at);
+                    if (!groups[appName].lastSeenGlobal || d > groups[appName].lastSeenGlobal) {
+                        groups[appName].lastSeenGlobal = d;
+                    }
+
+                    groups[appName].instances.push(inst);
+
+                    if (inst.metrics) {
+                        Object.entries(inst.metrics).forEach(([key, val]) => {
+                            if (typeof val === 'number') {
+                                // Si ça ressemble à du technique -> Ops
+                                if (key.startsWith('sys_') || key.startsWith('app_') || key.includes('cpu') || key.includes('mem') || key.includes('uptime') || key.includes('goroutines')) {
+                                    groups[appName].resourceKeys.add(key);
+                                } else { // Sinon -> Business (Tableau)
+                                    groups[appName].businessKeys.add(key);
+                                    groups[appName].sums[key] = (groups[appName].sums[key] || 0) + val;
+                                }
+                            } else if (typeof val === 'string' && val.length < 25) {
+                                groups[appName].stringKeys.add(key);
+                            }
+                        });
+                    }
+                });
+
+                Object.values(groups).forEach(g => {
+                    g.businessKeys = Array.from(g.businessKeys).sort();
+                    g.resourceKeys = Array.from(g.resourceKeys).sort();
+                    g.stringKeys = Array.from(g.stringKeys).sort();
+                });
+                this.groupedInstances = groups;
+            },
+
+            formatNumber(num) {
+                if (num === undefined || num === null) return '-';
+                if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+                if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+                return num.toString();
+            },
+
+            formatKey(key) { return key.replace(/_total$/, '').replace(/_/g, ' ').trim(); },
+
+            formatResourceKey(key) {
+                return key.replace('sys_', '').replace('app_', '').replace(/_/g, ' ');
+            },
+
+            timeAgo(dateInput) {
+                if (!dateInput) return '-';
+                const date = new Date(dateInput);
+                const now = new Date();
+                const seconds = Math.floor((now - date) / 1000);
+                if (seconds < 60) return 'Just now';
+                const minutes = Math.floor(seconds / 60);
+                if (minutes < 60) return `${minutes}m ago`;
+                const hours = Math.floor(minutes / 60);
+                if (hours < 24) return `${hours}h ago`;
+                return `${Math.floor(hours / 24)}d ago`;
+            },
+
+            getResourceIcon(key) {
+                if(key.includes('mem')) return 'ph-memory';
+                if(key.includes('cpu')) return 'ph-cpu';
+                if(key.includes('uptime')) return 'ph-clock';
+                if(key.includes('goroutines')) return 'ph-arrows-split';
+                return 'ph-activity';
+            },
+
+            getIconForTag(val) {
+                const v = String(val).toLowerCase();
+                if (v.includes('linux')) return 'ph-linux-logo';
+                if (v.includes('windows')) return 'ph-windows-logo';
+                if (v.includes('apple') || v.includes('darwin')) return 'ph-apple-logo';
+                if (v.includes('docker')) return 'ph-container';
+                return 'ph-tag';
+            }
+        }
+    }
+</script>
+</body>
+</html>
