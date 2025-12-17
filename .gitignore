@@ -2,3 +2,4 @@
 compose.local.yml
 /*.json
 /compose.prod.yml
+/migrations/seed.sql

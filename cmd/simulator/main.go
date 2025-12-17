@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/btouchard/shm/sdk"
+	"github.com/btouchard/shm/sdk/golang"
 )
 
 func main() {
-	cfg := sdk.Config{
+	cfg := golang.Config{
 		ServerURL:      "http://localhost:8080",
 		AppName:        "Ackify",
 		AppVersion:     "2.0.0-simulation",
@@ -25,7 +25,7 @@ func main() {
 		ReportInterval: 10 * time.Second,
 	}
 
-	client, err := sdk.New(cfg)
+	client, err := golang.New(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}

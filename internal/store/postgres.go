@@ -231,3 +231,85 @@ func (s *Store) ListInstances(limit int) ([]api.InstanceSummary, error) {
 	logger.InfoCtx("STORE", "Liste récupérée: %d instances", len(list))
 	return list, nil
 }
+
+// GetMetricsTimeSeries récupère les snapshots historiques agrégés par app
+func (s *Store) GetMetricsTimeSeries(appName string, periodHours int) (map[string]interface{}, error) {
+	logger.DebugCtx("STORE", "GetMetricsTimeSeries: app=%s, period=%dh", appName, periodHours)
+
+	query := `
+		SELECT s.snapshot_at, s.data
+		FROM snapshots s
+		JOIN instances i ON s.instance_id = i.instance_id
+		WHERE i.app_name = $1
+		  AND s.snapshot_at > NOW() - INTERVAL '1 hour' * $2
+		ORDER BY s.snapshot_at ASC
+	`
+
+	rows, err := s.db.Query(query, appName, periodHours)
+	if err != nil {
+		logger.ErrorCtx("STORE", "Erreur SQL GetMetricsTimeSeries: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Structure pour stocker les timestamps et les métriques
+	type dataPoint struct {
+		timestamp string
+		metrics   map[string]interface{}
+	}
+
+	var dataPoints []dataPoint
+	for rows.Next() {
+		var timestamp string
+		var rawMetrics []byte
+
+		if err := rows.Scan(&timestamp, &rawMetrics); err != nil {
+			logger.WarnCtx("STORE", "Erreur scan snapshot: %v", err)
+			continue
+		}
+
+		var metrics map[string]interface{}
+		if err := json.Unmarshal(rawMetrics, &metrics); err != nil {
+			logger.WarnCtx("STORE", "Erreur unmarshal metrics: %v", err)
+			continue
+		}
+
+		dataPoints = append(dataPoints, dataPoint{
+			timestamp: timestamp,
+			metrics:   metrics,
+		})
+	}
+
+	// Agréger par timestamp (grouper les instances)
+	timestampMap := make(map[string]map[string]float64)
+	var timestamps []string
+
+	for _, dp := range dataPoints {
+		if _, exists := timestampMap[dp.timestamp]; !exists {
+			timestampMap[dp.timestamp] = make(map[string]float64)
+			timestamps = append(timestamps, dp.timestamp)
+		}
+
+		// Sommer les métriques numériques
+		for key, val := range dp.metrics {
+			if v, ok := val.(float64); ok {
+				timestampMap[dp.timestamp][key] += v
+			}
+		}
+	}
+
+	// Construire le résultat final
+	result := make(map[string]interface{})
+	result["timestamps"] = timestamps
+
+	metricsData := make(map[string][]float64)
+	for _, ts := range timestamps {
+		for metricKey, value := range timestampMap[ts] {
+			metricsData[metricKey] = append(metricsData[metricKey], value)
+		}
+	}
+	result["metrics"] = metricsData
+
+	logger.InfoCtx("STORE", "TimeSeries récupérée: %d points pour %s", len(timestamps), appName)
+	return result, nil
+}

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-package sdk
+package golang
 
 import (
 	"encoding/hex"

@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 512 512"
+   width="512"
+   height="512"
+   version="1.1"
+   id="svg8"
+   sodipodi:docname="shm-logo.svg"
+   inkscape:version="1.4.2 (ebf0e940d0, 2025-05-08)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview8"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="1.4394531"
+     inkscape:cx="255.65265"
+     inkscape:cy="256"
+     inkscape:window-width="1920"
+     inkscape:window-height="945"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg8" />
+  <defs
+     id="defs4">
+    <!-- Gradient for the shield -->
+    <linearGradient
+       id="shieldGradient"
+       x1="0%"
+       y1="0%"
+       x2="100%"
+       y2="100%">
+      <stop
+         offset="0%"
+         style="stop-color:#6366f1"
+         id="stop1" />
+      <stop
+         offset="100%"
+         style="stop-color:#8b5cf6"
+         id="stop2" />
+    </linearGradient>
+    <!-- Gradient for metrics bars -->
+    <linearGradient
+       id="barGradient"
+       x1="0%"
+       y1="100%"
+       x2="0%"
+       y2="0%">
+      <stop
+         offset="0%"
+         style="stop-color:#22d3ee"
+         id="stop3" />
+      <stop
+         offset="100%"
+         style="stop-color:#06b6d4"
+         id="stop4" />
+    </linearGradient>
+    <!-- Subtle shadow -->
+    <filter
+       id="shadow"
+       x="0"
+       y="0"
+       width="1"
+       height="1">
+      <feDropShadow
+         dx="0"
+         dy="4"
+         stdDeviation="8"
+         flood-color="#000"
+         flood-opacity="0.15" />
+    </filter>
+  </defs>
+  <!-- Shield shape -->
+  <path
+     d="M256 48 L432 96 L432 240 C432 352 352 432 256 464 C160 432 80 352 80 240 L80 96 Z"
+     fill="url(#shieldGradient)"
+     filter="url(#shadow)"
+     id="path4" />
+  <!-- Inner shield highlight -->
+  <path
+     d="M256 72 L408 114 L408 240 C408 336 338 406 256 434 C174 406 104 336 104 240 L104 114 Z"
+     fill="none"
+     stroke="rgba(255,255,255,0.2)"
+     stroke-width="2"
+     id="path5" />
+  <!-- Metrics bars container (centered in shield) -->
+  <g
+     transform="translate(156, 160)"
+     id="g8">
+    <!-- Bar 1 (shortest) -->
+    <rect
+       x="0"
+       y="80"
+       width="40"
+       height="80"
+       rx="6"
+       fill="url(#barGradient)"
+       opacity="0.7"
+       id="rect5" />
+    <!-- Bar 2 (medium) -->
+    <rect
+       x="60"
+       y="40"
+       width="40"
+       height="120"
+       rx="6"
+       fill="url(#barGradient)"
+       opacity="0.85"
+       id="rect6" />
+    <!-- Bar 3 (tallest) -->
+    <rect
+       x="120"
+       y="0"
+       width="40"
+       height="160"
+       rx="6"
+       fill="url(#barGradient)"
+       id="rect7" />
+    <!-- Bar 4 (medium-tall) -->
+    <rect
+       x="180"
+       y="24"
+       width="40"
+       height="136"
+       rx="6"
+       fill="url(#barGradient)"
+       opacity="0.9"
+       id="rect8" />
+  </g>
+  <!-- Checkmark/lock indicator at top of shield -->
+</svg>

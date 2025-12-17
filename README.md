@@ -113,7 +113,6 @@ func main() {
         AppName:        "MyAwesomeApp",
         AppVersion:     "1.0.0",
         Environment:    "production",
-        DeploymentMode: "docker",
         Enabled:        true,
     })
     

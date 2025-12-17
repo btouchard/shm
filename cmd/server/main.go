@@ -136,6 +136,46 @@ func main() {
 		_ = json.NewEncoder(w).Encode(list)
 	})
 
+	http.HandleFunc("/api/v1/admin/metrics/", func(w http.ResponseWriter, r *http.Request) {
+		// Extract app name from URL path: /api/v1/admin/metrics/{appName}
+		appName := r.URL.Path[len("/api/v1/admin/metrics/"):]
+		if appName == "" {
+			http.Error(w, "App name required", 400)
+			return
+		}
+
+		logger.InfoCtx("HANDLER", "GET /api/v1/admin/metrics/%s", appName)
+
+		// Parse period parameter (default: 24h)
+		periodParam := r.URL.Query().Get("period")
+		periodHours := 24
+		switch periodParam {
+		case "7d":
+			periodHours = 24 * 7
+		case "30d":
+			periodHours = 24 * 30
+		case "3m":
+			periodHours = 24 * 90
+		case "1y":
+			periodHours = 24 * 365
+		case "all":
+			periodHours = 24 * 365 * 10 // 10 years = effectively all
+		default:
+			periodHours = 24
+		}
+
+		data, err := db.GetMetricsTimeSeries(appName, periodHours)
+		if err != nil {
+			logger.ErrorCtx("HANDLER", "Erreur récupération métriques pour %s: %v", appName, err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		logger.InfoCtx("HANDLER", "Métriques time series récupérées pour %s", appName)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(data)
+	})
+
 	http.Handle("/", http.FileServer(http.FS(web.Assets)))
 
 	port := os.Getenv("PORT")
