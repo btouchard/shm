@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 240 120"
+   width="240"
+   height="120"
+   version="1.1"
+   id="svg8"
+   sodipodi:docname="shm-logo-banner.svg"
+   inkscape:version="1.4.2 (ebf0e940d0, 2025-05-08)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview8"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="2.715"
+     inkscape:cx="200"
+     inkscape:cy="59.85267"
+     inkscape:window-width="1920"
+     inkscape:window-height="945"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg8" />
+  <defs
+     id="defs4">
+    <linearGradient
+       id="shieldGrad"
+       x1="17.056057"
+       y1="11.256998"
+       x2="110.86437"
+       y2="105.06531"
+       gradientTransform="matrix(0.93808315,0,0,1.0660036,-8.4714549,-1.8416206)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         style="stop-color:#6366f1"
+         id="stop1" />
+      <stop
+         offset="100%"
+         style="stop-color:#8b5cf6"
+         id="stop2" />
+    </linearGradient>
+    <linearGradient
+       id="barGrad"
+       x1="0"
+       y1="1"
+       x2="0"
+       y2="0">
+      <stop
+         offset="0%"
+         style="stop-color:#22d3ee"
+         id="stop3" />
+      <stop
+         offset="100%"
+         style="stop-color:#06b6d4"
+         id="stop4" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#barGrad"
+       id="linearGradient8"
+       x1="0"
+       y1="28.284271"
+       x2="0"
+       y2="14.142136"
+       gradientTransform="scale(0.70710678,1.4142136)"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#barGrad"
+       id="linearGradient9"
+       x1="24.248711"
+       y1="23.094011"
+       x2="24.248711"
+       y2="5.7735028"
+       gradientTransform="scale(0.57735027,1.7320508)"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#barGrad"
+       id="linearGradient10"
+       x1="56"
+       y1="20"
+       x2="56"
+       y2="0"
+       gradientTransform="scale(0.5,2)"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#barGrad"
+       id="linearGradient11"
+       x1="77.444176"
+       y1="21.693047"
+       x2="77.444176"
+       y2="3.2539568"
+       gradientTransform="scale(0.54232614,1.8439089)"
+       gradientUnits="userSpaceOnUse" />
+  </defs>
+  <g
+     id="g13"
+     transform="translate(2.946593,0.73664825)">
+    <g
+       id="g12">
+      <path
+         d="m 51.528545,10.158379 44,12 v 36 c 0,28 -20,44.000001 -44,52.000001 -24,-8 -43.9999999,-24.000001 -43.9999999,-52.000001 v -36 z"
+         fill="url(#shieldGrad)"
+         id="path4"
+         style="fill:url(#shieldGrad)" />
+      <g
+         transform="translate(23.528545,38.158379)"
+         id="g7">
+        <rect
+           x="0"
+           y="20"
+           width="10"
+           height="20"
+           rx="2"
+           fill="url(#barGrad)"
+           opacity="0.7"
+           id="rect4"
+           style="fill:url(#linearGradient8)" />
+        <rect
+           x="14"
+           y="10"
+           width="10"
+           height="30"
+           rx="2"
+           fill="url(#barGrad)"
+           opacity="0.85"
+           id="rect5"
+           style="fill:url(#linearGradient9)" />
+        <rect
+           x="28"
+           y="0"
+           width="10"
+           height="40"
+           rx="2"
+           fill="url(#barGrad)"
+           id="rect6"
+           style="fill:url(#linearGradient10)" />
+        <rect
+           x="42"
+           y="6"
+           width="10"
+           height="34"
+           rx="2"
+           fill="url(#barGrad)"
+           opacity="0.9"
+           id="rect7"
+           style="fill:url(#linearGradient11)" />
+      </g>
+    </g>
+    <g
+       id="g11"
+       transform="translate(-18)">
+      <text
+         x="121.52854"
+         y="76.158379"
+         font-family="system-ui, '-apple-system', 'Segoe UI', Roboto, sans-serif"
+         font-size="56px"
+         font-weight="700"
+         fill="#1f2937"
+         id="text7">SHM</text>
+      <text
+         x="123.52854"
+         y="98.158379"
+         font-family="system-ui, '-apple-system', 'Segoe UI', Roboto, sans-serif"
+         font-size="12px"
+         font-weight="500"
+         fill="#6b7280"
+         letter-spacing="0.5"
+         id="text8">Self-Hosted Metrics</text>
+    </g>
+  </g>
+  <!-- Shield -->
+  <!-- Mini metrics bars -->
+  <!-- SHM Text -->
+  <!-- Tagline -->
+</svg>

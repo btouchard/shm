@@ -3,3 +3,5 @@ compose.local.yml
 /*.json
 /compose.prod.yml
 /migrations/seed.sql
+/CLAUDE.md
+/AGENTS.md

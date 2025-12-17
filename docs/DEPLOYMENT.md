@@ -1,0 +1,453 @@
+
+
+# <img src="./logos/shm-logo.svg" width="32"> SHM Deployment Guide
+
+This guide covers deploying SHM (Self-Hosted Metrics) in production.
+
+## Prerequisites
+
+- Docker and Docker Compose
+- A domain name (optional but recommended)
+- A reverse proxy (Traefik, Nginx, Caddy...)
+
+---
+
+## Quick Start with Docker Compose
+
+### 1. Create the configuration
+
+Create a `compose.yml` file:
+
+```yaml
+name: shm
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: shm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shm
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me-in-production}
+      POSTGRES_DB: metrics
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shm -d metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: ghcr.io/btouchard/shm:latest
+    # Or build from source:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    container_name: shm-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://shm:${DB_PASSWORD:-change-me-in-production}@db:5432/metrics?sslmode=disable"
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
+```
+
+### 2. Download migrations
+
+```bash
+mkdir -p migrations
+curl -sL https://raw.githubusercontent.com/btouchard/shm/main/migrations/001_init.sql -o migrations/001_init.sql
+```
+
+### 3. Start the services
+
+```bash
+docker compose up -d
+```
+
+The server is now running on port 8080.
+
+---
+
+## Security Warning
+
+> **IMPORTANT: The dashboard is NOT secured by default.**
+>
+> The `/api/v1/admin/*` endpoints and the web dashboard have NO authentication.
+> Anyone with network access can view your telemetry data.
+>
+> **You MUST secure the dashboard before exposing it to the internet.**
+
+The telemetry collection endpoints (`/v1/register`, `/v1/activate`, `/v1/snapshot`) are secured with Ed25519 signatures and can be safely exposed.
+
+---
+
+## Securing the Dashboard
+
+### Option 1: Traefik with ForwardAuth (Recommended)
+
+This is the most flexible approach, supporting SSO providers like Authelia, Authentik, or Keycloak.
+
+**Example with Authelia:**
+
+```yaml
+name: shm
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.CHOOSE-YOUR-challenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=your@email.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  authelia:
+    image: authelia/authelia:latest
+    container_name: authelia
+    restart: unless-stopped
+    volumes:
+      - ./authelia:/config
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`auth.example.com`)"
+      - "traefik.http.routers.authelia.entrypoints=websecure"
+      - "traefik.http.routers.authelia.tls.certresolver=letsencrypt"
+
+  db:
+    image: postgres:15-alpine
+    container_name: shm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shm
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: metrics
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shm -d metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: ghcr.io/btouchard/shm:latest
+    container_name: shm-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://shm:${DB_PASSWORD}@db:5432/metrics?sslmode=disable"
+      PORT: "8080"
+    labels:
+      - "traefik.enable=true"
+      # Public routes (telemetry collection) - no auth
+      - "traefik.http.routers.shm-public.rule=Host(`shm.example.com`) && PathPrefix(`/v1/`)"
+      - "traefik.http.routers.shm-public.entrypoints=websecure"
+      - "traefik.http.routers.shm-public.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.shm-public.service=shm"
+      # Protected routes (dashboard + admin API) - with ForwardAuth
+      - "traefik.http.routers.shm-protected.rule=Host(`shm.example.com`) && (PathPrefix(`/api/`) || PathPrefix(`/`))"
+      - "traefik.http.routers.shm-protected.entrypoints=websecure"
+      - "traefik.http.routers.shm-protected.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.shm-protected.middlewares=authelia@docker"
+      - "traefik.http.routers.shm-protected.service=shm"
+      - "traefik.http.routers.shm-protected.priority=1"
+      - "traefik.http.routers.shm-public.priority=2"
+      # Service
+      - "traefik.http.services.shm.loadbalancer.server.port=8080"
+      # ForwardAuth middleware
+      - "traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/authz/forward-auth"
+      - "traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User,Remote-Groups"
+
+volumes:
+  postgres_data:
+```
+
+### Option 2: Traefik with Basic Auth
+
+Simpler setup using HTTP Basic Authentication:
+
+```yaml
+name: shm
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=your@email.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+
+  db:
+    image: postgres:15-alpine
+    container_name: shm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shm
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: metrics
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shm -d metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: ghcr.io/btouchard/shm:latest
+    container_name: shm-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://shm:${DB_PASSWORD}@db:5432/metrics?sslmode=disable"
+      PORT: "8080"
+    labels:
+      - "traefik.enable=true"
+      # Public routes (telemetry collection) - no auth required
+      - "traefik.http.routers.shm-public.rule=Host(`shm.example.com`) && PathPrefix(`/v1/`)"
+      - "traefik.http.routers.shm-public.entrypoints=websecure"
+      - "traefik.http.routers.shm-public.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.shm-public.service=shm"
+      - "traefik.http.routers.shm-public.priority=2"
+      # Protected routes (dashboard + admin API) - with Basic Auth
+      - "traefik.http.routers.shm-protected.rule=Host(`shm.example.com`)"
+      - "traefik.http.routers.shm-protected.entrypoints=websecure"
+      - "traefik.http.routers.shm-protected.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.shm-protected.middlewares=shm-auth"
+      - "traefik.http.routers.shm-protected.service=shm"
+      - "traefik.http.routers.shm-protected.priority=1"
+      # Service
+      - "traefik.http.services.shm.loadbalancer.server.port=8080"
+      # Basic Auth middleware (generate with: htpasswd -nb admin password)
+      - "traefik.http.middlewares.shm-auth.basicauth.users=${BASIC_AUTH_USERS}"
+
+volumes:
+  postgres_data:
+  letsencrypt:
+```
+
+Generate the Basic Auth credentials:
+
+```bash
+# Install htpasswd (apache2-utils on Debian/Ubuntu)
+htpasswd -nb admin your-secure-password
+# Output: admin:$$apr1$$xyz...
+
+# Add to .env file (escape $ with $$)
+echo 'BASIC_AUTH_USERS=admin:$$apr1$$xyz...' >> .env
+```
+
+### Option 3: Nginx with Basic Auth
+
+```nginx
+upstream shm {
+    server 127.0.0.1:8080;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name shm.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/shm.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/shm.example.com/privkey.pem;
+
+    # Public telemetry endpoints - no auth
+    location /v1/ {
+        proxy_pass http://shm;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Protected dashboard and admin API
+    location / {
+        auth_basic "SHM Dashboard";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+
+        proxy_pass http://shm;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Create the password file:
+
+```bash
+htpasswd -c /etc/nginx/.htpasswd admin
+```
+
+### Option 4: Caddy with Basic Auth
+
+```caddyfile
+shm.example.com {
+    # Public telemetry endpoints
+    @public path /v1/*
+    handle @public {
+        reverse_proxy localhost:8080
+    }
+
+    # Protected dashboard
+    handle {
+        basicauth {
+            admin $2a$14$... # bcrypt hash
+        }
+        reverse_proxy localhost:8080
+    }
+}
+```
+
+Generate bcrypt hash:
+
+```bash
+caddy hash-password --plaintext 'your-secure-password'
+```
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | (required) | PostgreSQL connection string |
+| `PORT` | `8080` | HTTP server port |
+
+---
+
+## Database Backups
+
+### Backup
+
+```bash
+docker exec shm-db pg_dump -U shm metrics > backup_$(date +%Y%m%d).sql
+```
+
+### Restore
+
+```bash
+cat backup_20240115.sql | docker exec -i shm-db psql -U shm metrics
+```
+
+---
+
+## Health Checks
+
+The application exposes the dashboard at `/` which can be used for health checks:
+
+```bash
+curl -f http://localhost:8080/ || exit 1
+```
+
+For Kubernetes or orchestrators:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+readinessProbe:
+  httpGet:
+    path: /
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 5
+```
+
+---
+
+## Resource Requirements
+
+Minimal requirements:
+
+- **CPU**: 0.1 vCPU
+- **Memory**: 64 MB (app) + 256 MB (PostgreSQL)
+- **Disk**: Depends on data retention, ~1 KB per snapshot
+
+---
+
+## Upgrading
+
+```bash
+# Pull latest image
+docker compose pull
+
+# Restart with new version
+docker compose up -d
+```
+
+Database migrations are applied automatically on startup.
+
+---
+
+## Troubleshooting
+
+### Check logs
+
+```bash
+# All services
+docker compose logs -f
+
+# App only
+docker compose logs -f app
+
+# Database only
+docker compose logs -f db
+```
+
+### Database connection issues
+
+```bash
+# Test database connectivity
+docker exec shm-app sh -c 'nc -zv db 5432'
+
+# Check database status
+docker exec shm-db pg_isready -U shm -d metrics
+```
+
+### Reset everything
+
+```bash
+docker compose down -v  # Warning: deletes all data!
+docker compose up -d
+```

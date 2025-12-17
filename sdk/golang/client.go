@@ -47,6 +47,8 @@ func New(cfg Config) (*Client, error) {
 
 	if cfg.ReportInterval == 0 {
 		cfg.ReportInterval = 1 * time.Hour
+	} else if cfg.ReportInterval < time.Minute {
+		cfg.ReportInterval = time.Minute
 	}
 
 	ensureDataDir(cfg.DataDir)
