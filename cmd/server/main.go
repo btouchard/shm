@@ -4,52 +4,70 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
+	"github.com/btouchard/shm/internal/adapters/postgres"
+	httpAdapter "github.com/btouchard/shm/internal/adapters/http"
 	"github.com/btouchard/shm/internal/config"
 	"github.com/btouchard/shm/internal/middleware"
-	"github.com/btouchard/shm/internal/store"
-	"github.com/btouchard/shm/pkg/api"
-	"github.com/btouchard/shm/pkg/logger"
 	"github.com/btouchard/shm/web"
 )
 
 func main() {
+	// Setup structured logger
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+
+	// Load database URL
 	dbURL := os.Getenv("SHM_DB_DSN")
 	if dbURL == "" {
 		dbURL = "postgres://user:password@localhost:5432/metrics?sslmode=disable"
 	}
 
-	logger.Info("Tentative de connexion à PostgreSQL...")
-	db, err := store.NewStore(dbURL)
+	// Connect to database
+	logger.Info("connecting to PostgreSQL")
+	store, err := postgres.NewStore(dbURL)
 	if err != nil {
-		logger.Error("Impossible de se connecter à la DB: %v", err)
-		log.Fatalf("Impossible de se connecter à la DB: %v", err)
+		logger.Error("database connection failed", "error", err)
+		log.Fatalf("database connection failed: %v", err)
 	}
-	logger.InfoCtx("DATABASE", "Connecté à PostgreSQL avec succès")
+	defer store.Close()
+	logger.Info("connected to PostgreSQL")
 
+	// Setup rate limiter
 	rlConfig := config.LoadRateLimitConfig()
 	rl := middleware.NewRateLimiter(rlConfig)
 	defer rl.Stop()
 
 	if rlConfig.Enabled {
-		logger.InfoCtx("RATELIMIT", "Rate limiting enabled")
+		logger.Info("rate limiting enabled")
 	}
 
-	router := api.NewRouter(db, rl)
+	// Create router with all dependencies
+	router := httpAdapter.NewRouter(httpAdapter.RouterConfig{
+		Store:       store,
+		RateLimiter: rl,
+		Logger:      logger,
+	})
+
+	// Serve static web assets
 	router.Handle("/", http.FileServer(http.FS(web.Assets)))
 
+	// Get port
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	logger.Info("═══════════════════════════════════════════════════")
-	logger.InfoCtx("SERVER", "SHM (Self-Hosted Metrics) démarré")
-	logger.InfoCtx("SERVER", "Port: %s", port)
-	logger.InfoCtx("SERVER", "Endpoints: /v1/register, /v1/activate, /v1/snapshot, /api/v1/admin/*")
-	logger.Info("═══════════════════════════════════════════════════")
+	// Start server
+	logger.Info("server starting",
+		"port", port,
+		"endpoints", []string{"/v1/register", "/v1/activate", "/v1/snapshot", "/api/v1/admin/*"},
+	)
 
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }

@@ -3,6 +3,7 @@
 package middleware
 
 import (
+	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
@@ -14,7 +15,6 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/btouchard/shm/internal/config"
-	"github.com/btouchard/shm/pkg/logger"
 )
 
 type limiterEntry struct {
@@ -105,8 +105,13 @@ func (rl *RateLimiter) cleanup() {
 
 	total := ipCount + instanceCount + adminCount + bruteForceCount
 	if total > 0 {
-		logger.DebugCtx("RATELIMIT", "Cleanup: removed %d entries (ip=%d, instance=%d, admin=%d, bruteforce=%d)",
-			total, ipCount, instanceCount, adminCount, bruteForceCount)
+		slog.Debug("ratelimit cleanup",
+			"total", total,
+			"ip", ipCount,
+			"instance", instanceCount,
+			"admin", adminCount,
+			"bruteforce", bruteForceCount,
+		)
 	}
 }
 
@@ -192,7 +197,7 @@ func (rl *RateLimiter) RegisterMiddleware(next http.HandlerFunc) http.HandlerFun
 		limiter := rl.getLimiter(&rl.ipLimiters, ip, rl.config.Register)
 
 		if !limiter.Allow() {
-			logger.WarnCtx("RATELIMIT", "Rate limit exceeded for IP %s on %s", ip, r.URL.Path)
+			slog.Warn("rate limit exceeded", "ip", ip, "path", r.URL.Path)
 			writeTooManyRequests(w, limiter, rl.config.Register)
 			return
 		}
@@ -218,7 +223,7 @@ func (rl *RateLimiter) SnapshotMiddleware(next http.HandlerFunc) http.HandlerFun
 		limiter := rl.getLimiter(&rl.instanceLimiters, instanceID, rl.config.Snapshot)
 
 		if !limiter.Allow() {
-			logger.WarnCtx("RATELIMIT", "Rate limit exceeded for instance %s on /v1/snapshot", instanceID)
+			slog.Warn("rate limit exceeded", "instance_id", instanceID, "path", "/v1/snapshot")
 			writeTooManyRequests(w, limiter, rl.config.Snapshot)
 			return
 		}
@@ -238,7 +243,7 @@ func (rl *RateLimiter) AdminMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		ip := getClientIP(r)
 
 		if rl.isBanned(ip) {
-			logger.WarnCtx("RATELIMIT", "Banned IP %s attempted to access admin endpoint", ip)
+			slog.Warn("banned IP attempted access", "ip", ip)
 			w.Header().Set("Retry-After", strconv.Itoa(int(rl.config.BruteForceBan.Seconds())))
 			http.Error(w, "Too Many Requests - Temporarily Banned", http.StatusTooManyRequests)
 			return
@@ -247,7 +252,7 @@ func (rl *RateLimiter) AdminMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		limiter := rl.getLimiter(&rl.adminLimiters, ip, rl.config.Admin)
 
 		if !limiter.Allow() {
-			logger.WarnCtx("RATELIMIT", "Rate limit exceeded for IP %s on %s", ip, r.URL.Path)
+			slog.Warn("rate limit exceeded", "ip", ip, "path", r.URL.Path)
 			writeTooManyRequests(w, limiter, rl.config.Admin)
 			return
 		}
@@ -290,11 +295,11 @@ func (rl *RateLimiter) recordAuthFailure(ip string) {
 	bf := entry.(*bruteForceEntry)
 
 	bf.failures++
-	logger.DebugCtx("RATELIMIT", "Auth failure %d/%d for IP %s", bf.failures, rl.config.BruteForceThreshold, ip)
+	slog.Debug("auth failure recorded", "failures", bf.failures, "threshold", rl.config.BruteForceThreshold, "ip", ip)
 
 	if bf.failures >= rl.config.BruteForceThreshold {
 		bf.bannedAt = now
 		bf.banExpiry = now.Add(rl.config.BruteForceBan)
-		logger.WarnCtx("RATELIMIT", "IP %s banned for %v due to brute-force", ip, rl.config.BruteForceBan)
+		slog.Warn("IP banned for brute-force", "ip", ip, "duration", rl.config.BruteForceBan)
 	}
 }

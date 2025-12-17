@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btouchard/shm/pkg/api"
 	"github.com/btouchard/shm/pkg/crypto"
 )
 
@@ -99,7 +98,7 @@ func (c *Client) Start(ctx context.Context) {
 }
 
 func (c *Client) register() error {
-	req := api.RegisterRequest{
+	req := RegisterRequest{
 		InstanceID:  c.identity.InstanceID,
 		PublicKey:   c.identity.PublicKey,
 		AppName:     c.config.AppName,
@@ -164,7 +163,7 @@ func (c *Client) sendSnapshot() {
 	}
 	metricsJSON, _ := json.Marshal(data)
 
-	payload := api.SnapshotRequest{
+	payload := SnapshotRequest{
 		InstanceID: c.identity.InstanceID,
 		Timestamp:  time.Now().UTC(),
 		Metrics:    metricsJSON,
