@@ -9,18 +9,20 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/btouchard/shm/sdk"
 )
 
 func main() {
 	cfg := sdk.Config{
-		ServerURL:   "http://localhost:8080",
-		AppName:     "Ackify",
-		AppVersion:  "2.0.0-simulation",
-		Environment: "production",
-		Enabled:     true,
-		DataDir:     ".",
+		ServerURL:      "http://localhost:8080",
+		AppName:        "Ackify",
+		AppVersion:     "2.0.0-simulation",
+		Environment:    "production",
+		Enabled:        true,
+		DataDir:        ".",
+		ReportInterval: 10 * time.Second,
 	}
 
 	client, err := sdk.New(cfg)
@@ -28,10 +30,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	docs := int64(100)
-	sigs := int64(50)
-	reminds := int64(20)
-	whs := int64(10)
+	docs := int64(10)
+	sigs := int64(5)
+	reminds := int64(4)
+	whs := int64(2)
 
 	client.SetProvider(func() map[string]interface{} {
 		docs += int64(rand.Intn(5))

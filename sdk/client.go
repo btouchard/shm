@@ -21,12 +21,13 @@ import (
 )
 
 type Config struct {
-	ServerURL   string
-	AppName     string
-	AppVersion  string
-	DataDir     string // Dossier où stocker shm_identity.json
-	Environment string // prod, staging
-	Enabled     bool
+	ServerURL      string
+	AppName        string
+	AppVersion     string
+	DataDir        string // Dossier où stocker shm_identity.json
+	Environment    string // prod, staging
+	Enabled        bool
+	ReportInterval time.Duration // Intervalle entre les snapshots (défaut: 1h)
 }
 
 type MetricsProvider func() map[string]interface{}
@@ -42,6 +43,10 @@ type Client struct {
 func New(cfg Config) (*Client, error) {
 	if cfg.DataDir == "" {
 		cfg.DataDir = "."
+	}
+
+	if cfg.ReportInterval == 0 {
+		cfg.ReportInterval = 1 * time.Hour
 	}
 
 	ensureDataDir(cfg.DataDir)
@@ -76,7 +81,7 @@ func (c *Client) Start(ctx context.Context) {
 		log.Printf("[SHM] Activation failed: %v", err)
 	}
 
-	ticker := time.NewTicker(10 * time.Second) // Plus rapide pour la démo
+	ticker := time.NewTicker(c.config.ReportInterval)
 	defer ticker.Stop()
 
 	c.sendSnapshot()
