@@ -1,8 +1,8 @@
-# 🛡️ SHM (Self-Hosted Metrics)
+# <img src="./docs/logos/shm-logo.svg" width="42"> Self-Hosted Metrics (SHM)
 
 <div align="center">
 
-![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=for-the-badge&logo=go)
+![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)
 ![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)
 ![Privacy](https://img.shields.io/badge/Privacy-First-red?style=for-the-badge)
@@ -45,6 +45,31 @@ When you distribute self-hosted software (on-premise), you fly blind. You don't 
 
 ---
 
+<table>
+  <tr>
+    <td align="center">
+      <a href="./docs/images/dashboard.png">
+        <img src="./docs/images/dashboard.png" width="300" alt="Dashboard Overview">
+      </a>
+      <br><em>Dashboard</em>
+    </td>
+    <td align="center">
+      <a href="./docs/images/details.png">
+        <img src="./docs/images/details.png" width="300" alt="Instance Details">
+      </a>
+      <br><em>Details</em>
+    </td>
+    <td align="center">
+      <a href="./docs/images/graph.png">
+        <img src="./docs/images/graph.png" width="300" alt="Metrics Graph">
+      </a>
+      <br><em>Graph</em>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## ⚡ Quick Start (Server)
 
 Docker: 
@@ -62,7 +87,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - DATABASE_URL=postgres://user:pass@db:5432/shm?sslmode=disable
+      - SHM_DB_DSN=postgres://user:pass@db:5432/shm?sslmode=disable
     depends_on:
       - db
 
@@ -86,6 +111,19 @@ docker compose up -d
 ```
 
 Access the dashboard at **http://localhost:8080**.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SHM_DB_DSN` | `postgres://user:password@localhost:5432/metrics?sslmode=disable` | PostgreSQL connection string |
+| `PORT` | `8080` | HTTP server port |
+
+#### Rate Limiting
+
+Rate limiting is enabled by default to protect against abuse.
+
+See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for full rate limiting configuration documentation.
 
 ---
 

@@ -7,29 +7,24 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/btouchard/shm/internal/middleware"
 	"github.com/btouchard/shm/pkg/crypto"
 	"github.com/btouchard/shm/pkg/logger"
 )
 
-// NewRouter creates and configures the HTTP router with all routes
-func NewRouter(store Store) *http.ServeMux {
-	mux := http.NewServeMux()
+func NewRouter(store Store, rl *middleware.RateLimiter) *http.ServeMux {
 	h := NewHandlers(store)
-
-	// SDK endpoints
-	mux.HandleFunc("/v1/register", h.Register)
-	mux.HandleFunc("/v1/activate", signedRequestMiddleware(store, h.Activate))
-	mux.HandleFunc("/v1/snapshot", signedRequestMiddleware(store, h.Snapshot))
-
-	// Admin endpoints (dashboard)
-	mux.HandleFunc("/api/v1/admin/stats", h.AdminStats)
-	mux.HandleFunc("/api/v1/admin/instances", h.AdminInstances)
-	mux.HandleFunc("/api/v1/admin/metrics/", h.AdminMetrics)
-
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/healthcheck", h.Healthcheck)
+	mux.HandleFunc("/v1/register", rl.RegisterMiddleware(h.Register))
+	mux.HandleFunc("/v1/activate", rl.RegisterMiddleware(signedRequestMiddleware(store, h.Activate)))
+	mux.HandleFunc("/v1/snapshot", rl.SnapshotMiddleware(signedRequestMiddleware(store, h.Snapshot)))
+	mux.HandleFunc("/api/v1/admin/stats", rl.AdminMiddleware(h.AdminStats))
+	mux.HandleFunc("/api/v1/admin/instances", rl.AdminMiddleware(h.AdminInstances))
+	mux.HandleFunc("/api/v1/admin/metrics/", rl.AdminMiddleware(h.AdminMetrics))
 	return mux
 }
 
-// signedRequestMiddleware verifies Ed25519 signatures on requests
 func signedRequestMiddleware(store Store, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		instanceID := r.Header.Get("X-Instance-ID")

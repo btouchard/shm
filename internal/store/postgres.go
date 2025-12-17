@@ -28,7 +28,6 @@ func NewStore(connStr string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
-// RegisterInstance enregistre ou met à jour une instance
 func (s *Store) RegisterInstance(req api.RegisterRequest) error {
 	logger.DebugCtx("STORE", "RegisterInstance: %s (app=%s)", req.InstanceID, req.AppName)
 
@@ -50,7 +49,6 @@ func (s *Store) RegisterInstance(req api.RegisterRequest) error {
 	return nil
 }
 
-// ActivateInstance passe l'instance de pending à active
 func (s *Store) ActivateInstance(instanceID string) error {
 	logger.DebugCtx("STORE", "ActivateInstance: %s", instanceID)
 
@@ -69,7 +67,6 @@ func (s *Store) ActivateInstance(instanceID string) error {
 	return nil
 }
 
-// GetInstanceKey récupère la clé publique d'une instance pour vérification
 func (s *Store) GetInstanceKey(instanceID string) (string, error) {
 	logger.DebugCtx("STORE", "GetInstanceKey: %s", instanceID)
 
@@ -89,7 +86,6 @@ func (s *Store) GetInstanceKey(instanceID string) (string, error) {
 	return pubKey, nil
 }
 
-// SaveSnapshot sauvegarde les métriques et met à jour le heartbeat
 func (s *Store) SaveSnapshot(req api.SnapshotRequest) error {
 	logger.DebugCtx("STORE", "SaveSnapshot: %s (timestamp=%s)", req.InstanceID, req.Timestamp)
 
@@ -124,7 +120,6 @@ func (s *Store) SaveSnapshot(req api.SnapshotRequest) error {
 	return nil
 }
 
-// GetDashboardStats calcule les stats
 func (s *Store) GetDashboardStats() (api.DashboardStats, error) {
 	logger.DebugCtx("STORE", "GetDashboardStats appelé")
 
@@ -187,7 +182,6 @@ func (s *Store) GetDashboardStats() (api.DashboardStats, error) {
 	return stats, nil
 }
 
-// ListInstances reste simple : on retourne le JSON brut
 func (s *Store) ListInstances(limit int) ([]api.InstanceSummary, error) {
 	logger.DebugCtx("STORE", "ListInstances appelé (limit=%d)", limit)
 
@@ -232,7 +226,6 @@ func (s *Store) ListInstances(limit int) ([]api.InstanceSummary, error) {
 	return list, nil
 }
 
-// GetMetricsTimeSeries récupère les snapshots historiques agrégés par app
 func (s *Store) GetMetricsTimeSeries(appName string, periodHours int) (map[string]interface{}, error) {
 	logger.DebugCtx("STORE", "GetMetricsTimeSeries: app=%s, period=%dh", appName, periodHours)
 
@@ -252,7 +245,6 @@ func (s *Store) GetMetricsTimeSeries(appName string, periodHours int) (map[strin
 	}
 	defer rows.Close()
 
-	// Structure pour stocker les timestamps et les métriques
 	type dataPoint struct {
 		timestamp string
 		metrics   map[string]interface{}
@@ -280,7 +272,6 @@ func (s *Store) GetMetricsTimeSeries(appName string, periodHours int) (map[strin
 		})
 	}
 
-	// Agréger par timestamp (grouper les instances)
 	timestampMap := make(map[string]map[string]float64)
 	var timestamps []string
 
@@ -290,7 +281,6 @@ func (s *Store) GetMetricsTimeSeries(appName string, periodHours int) (map[strin
 			timestamps = append(timestamps, dp.timestamp)
 		}
 
-		// Sommer les métriques numériques
 		for key, val := range dp.metrics {
 			if v, ok := val.(float64); ok {
 				timestampMap[dp.timestamp][key] += v
@@ -298,7 +288,6 @@ func (s *Store) GetMetricsTimeSeries(appName string, periodHours int) (map[strin
 		}
 	}
 
-	// Construire le résultat final
 	result := make(map[string]interface{})
 	result["timestamps"] = timestamps
 

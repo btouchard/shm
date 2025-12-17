@@ -46,42 +46,34 @@ func log(level Level, color, context, format string, args ...interface{}) {
 	}
 }
 
-// Debug log en mode debug
 func Debug(format string, args ...interface{}) {
 	log(LevelDebug, Gray, "", format, args...)
 }
 
-// DebugCtx log debug avec contexte
 func DebugCtx(context, format string, args ...interface{}) {
 	log(LevelDebug, Gray, context, format, args...)
 }
 
-// Info log une information
 func Info(format string, args ...interface{}) {
 	log(LevelInfo, Green, "", format, args...)
 }
 
-// InfoCtx log info avec contexte
 func InfoCtx(context, format string, args ...interface{}) {
 	log(LevelInfo, Green, context, format, args...)
 }
 
-// Warn log un avertissement
 func Warn(format string, args ...interface{}) {
 	log(LevelWarn, Yellow, "", format, args...)
 }
 
-// WarnCtx log warning avec contexte
 func WarnCtx(context, format string, args ...interface{}) {
 	log(LevelWarn, Yellow, context, format, args...)
 }
 
-// Error log une erreur
 func Error(format string, args ...interface{}) {
 	log(LevelError, Red, "", format, args...)
 }
 
-// ErrorCtx log error avec contexte
 func ErrorCtx(context, format string, args ...interface{}) {
 	log(LevelError, Red, context, format, args...)
 }

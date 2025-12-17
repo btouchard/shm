@@ -9,7 +9,6 @@ import (
 	"github.com/btouchard/shm/pkg/logger"
 )
 
-// Store defines the interface for data persistence
 type Store interface {
 	RegisterInstance(req RegisterRequest) error
 	ActivateInstance(instanceID string) error
@@ -20,17 +19,19 @@ type Store interface {
 	GetMetricsTimeSeries(appName string, periodHours int) (map[string]interface{}, error)
 }
 
-// Handlers contains all HTTP handlers
 type Handlers struct {
 	store Store
 }
 
-// NewHandlers creates a new Handlers instance
 func NewHandlers(store Store) *Handlers {
 	return &Handlers{store: store}
 }
 
-// Register handles POST /v1/register
+func (h *Handlers) Healthcheck(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
 func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
 	logger.InfoCtx("HANDLER", "POST /v1/register")
 
@@ -60,7 +61,6 @@ func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(GenericResponse{Status: "ok", Message: "Registered"})
 }
 
-// Activate handles POST /v1/activate (requires signed request)
 func (h *Handlers) Activate(w http.ResponseWriter, r *http.Request) {
 	instanceID := r.Header.Get("X-Instance-ID")
 	logger.InfoCtx("HANDLER", "POST /v1/activate (instance=%s)", instanceID)
@@ -82,7 +82,6 @@ func (h *Handlers) Activate(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(GenericResponse{Status: "active", Message: "Instance activated successfully"})
 }
 
-// Snapshot handles POST /v1/snapshot (requires signed request)
 func (h *Handlers) Snapshot(w http.ResponseWriter, r *http.Request) {
 	instanceID := r.Header.Get("X-Instance-ID")
 	logger.InfoCtx("HANDLER", "POST /v1/snapshot (instance=%s)", instanceID)
@@ -111,7 +110,6 @@ func (h *Handlers) Snapshot(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(GenericResponse{Status: "ok", Message: "Snapshot received"})
 }
 
-// AdminStats handles GET /api/v1/admin/stats
 func (h *Handlers) AdminStats(w http.ResponseWriter, r *http.Request) {
 	logger.InfoCtx("HANDLER", "GET /api/v1/admin/stats")
 
@@ -126,7 +124,6 @@ func (h *Handlers) AdminStats(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(stats)
 }
 
-// AdminInstances handles GET /api/v1/admin/instances
 func (h *Handlers) AdminInstances(w http.ResponseWriter, r *http.Request) {
 	logger.InfoCtx("HANDLER", "GET /api/v1/admin/instances")
 
@@ -144,9 +141,7 @@ func (h *Handlers) AdminInstances(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(list)
 }
 
-// AdminMetrics handles GET /api/v1/admin/metrics/{appName}
 func (h *Handlers) AdminMetrics(w http.ResponseWriter, r *http.Request) {
-	// Extract app name from URL path: /api/v1/admin/metrics/{appName}
 	appName := r.URL.Path[len("/api/v1/admin/metrics/"):]
 	if appName == "" {
 		http.Error(w, "App name required", http.StatusBadRequest)
@@ -155,7 +150,6 @@ func (h *Handlers) AdminMetrics(w http.ResponseWriter, r *http.Request) {
 
 	logger.InfoCtx("HANDLER", "GET /api/v1/admin/metrics/%s", appName)
 
-	// Parse period parameter (default: 24h)
 	periodParam := r.URL.Query().Get("period")
 	periodHours := 24
 	switch periodParam {

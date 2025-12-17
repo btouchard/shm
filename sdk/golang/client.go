@@ -24,10 +24,10 @@ type Config struct {
 	ServerURL      string
 	AppName        string
 	AppVersion     string
-	DataDir        string // Dossier où stocker shm_identity.json
-	Environment    string // prod, staging
+	DataDir        string // where is store app_shm_identity.json
+	Environment    string // prod, staging, ...
 	Enabled        bool
-	ReportInterval time.Duration // Intervalle entre les snapshots (défaut: 1h)
+	ReportInterval time.Duration // snapshots interval (default: 1h)
 }
 
 type MetricsProvider func() map[string]interface{}
@@ -255,7 +255,6 @@ func ensureDataDir(dir string) {
 }
 
 func slug(s string) string {
-	// Conversion en minuscules
 	s = strings.ToLower(s)
 
 	replacements := map[rune]string{

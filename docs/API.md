@@ -1,4 +1,4 @@
-# SHM API Reference
+# <img src="./logos/shm-logo.svg" width="32"> SHM API Reference
 
 This document describes the REST API used by instances to report telemetry data to the SHM server.
 
@@ -19,6 +19,37 @@ https://your-shm-server.example.com
 3. **Snapshot** - Instance periodically sends signed metrics
 
 ## Endpoints
+
+### GET /api/v1/healthcheck
+
+Health check endpoint for liveness probes. No authentication, no rate limiting.
+
+**Response:**
+
+```json
+{
+  "status": "ok"
+}
+```
+
+**Status Codes:**
+
+| Code | Description |
+|------|-------------|
+| 200 | Server is healthy |
+
+Use this for Docker/Kubernetes probes:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /api/v1/healthcheck
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+```
+
+---
 
 ### POST /v1/register
 
@@ -285,9 +316,54 @@ All errors return a plain text message with an appropriate HTTP status code:
 
 ## Rate Limiting
 
-The server does not enforce rate limits. However, we recommend:
+Rate limiting is enabled by default to protect against abuse. Each endpoint has specific limits.
 
-- **Snapshots**: Every 60 seconds
+### Limits by Endpoint
+
+| Endpoint | Key | Requests | Period | Burst |
+|----------|-----|----------|--------|-------|
+| `/v1/register` | IP | 5 | 1 min | 2 |
+| `/v1/activate` | IP | 5 | 1 min | 2 |
+| `/v1/snapshot` | Instance ID | 1 | 1 min | 2 |
+| `/api/v1/admin/*` | IP | 30 | 1 min | 10 |
+| `/api/v1/healthcheck` | - | unlimited | - | - |
+
+### Response Headers
+
+All rate-limited endpoints return these headers:
+
+| Header | Description |
+|--------|-------------|
+| `X-RateLimit-Limit` | Maximum requests allowed per period |
+| `X-RateLimit-Remaining` | Requests remaining in current period |
+| `X-RateLimit-Reset` | Unix timestamp when the limit resets |
+| `Retry-After` | Seconds to wait (only on 429 responses) |
+
+### 429 Too Many Requests
+
+When rate limited, the server returns:
+
+```
+HTTP/1.1 429 Too Many Requests
+X-RateLimit-Limit: 5
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1702847400
+Retry-After: 45
+
+Too Many Requests
+```
+
+### Brute-Force Protection
+
+Admin endpoints have additional protection: after 5 failed authentication attempts (401/403), the IP is banned for 15 minutes.
+
+### Configuration
+
+All limits are configurable via environment variables. See [README.md](../README.md#rate-limiting) for the full list.
+
+### Recommendations
+
+- **Snapshots**: Every 60 seconds (matches the 1/min limit)
 - **Register**: Once per instance lifetime
 - **Activate**: Once after registration
 

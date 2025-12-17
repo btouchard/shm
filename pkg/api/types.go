@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// RegisterRequest est envoyé une seule fois à l'installation
 type RegisterRequest struct {
 	InstanceID     string `json:"instance_id"`
 	PublicKey      string `json:"public_key"` // Hex encoded string
@@ -18,20 +17,17 @@ type RegisterRequest struct {
 	OSArch         string `json:"os_arch"`
 }
 
-// SnapshotRequest contient les métriques périodiques
 type SnapshotRequest struct {
 	InstanceID string          `json:"instance_id"`
 	Timestamp  time.Time       `json:"timestamp"`
 	Metrics    json.RawMessage `json:"metrics"` // Agnostique: {"docs": 10, "cpu": 0.5...}
 }
 
-// GenericResponse pour les retours API
 type GenericResponse struct {
 	Status  string `json:"status"`
 	Message string `json:"message,omitempty"`
 }
 
-// InstanceSummary objet retourné dans la liste
 type InstanceSummary struct {
 	InstanceID     string                 `json:"instance_id"`
 	AppName        string                 `json:"app_name"`
@@ -43,7 +39,6 @@ type InstanceSummary struct {
 	Metrics        map[string]interface{} `json:"metrics"`
 }
 
-// DashboardStats compteurs globaux
 type DashboardStats struct {
 	TotalInstances  int              `json:"total_instances"`
 	ActiveInstances int              `json:"active_instances"`

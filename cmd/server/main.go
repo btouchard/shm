@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/btouchard/shm/internal/config"
+	"github.com/btouchard/shm/internal/middleware"
 	"github.com/btouchard/shm/internal/store"
 	"github.com/btouchard/shm/pkg/api"
 	"github.com/btouchard/shm/pkg/logger"
@@ -14,7 +16,7 @@ import (
 )
 
 func main() {
-	dbURL := os.Getenv("DATABASE_URL")
+	dbURL := os.Getenv("SHM_DB_DSN")
 	if dbURL == "" {
 		dbURL = "postgres://user:password@localhost:5432/metrics?sslmode=disable"
 	}
@@ -27,7 +29,15 @@ func main() {
 	}
 	logger.InfoCtx("DATABASE", "Connecté à PostgreSQL avec succès")
 
-	router := api.NewRouter(db)
+	rlConfig := config.LoadRateLimitConfig()
+	rl := middleware.NewRateLimiter(rlConfig)
+	defer rl.Stop()
+
+	if rlConfig.Enabled {
+		logger.InfoCtx("RATELIMIT", "Rate limiting enabled")
+	}
+
+	router := api.NewRouter(db, rl)
 	router.Handle("/", http.FileServer(http.FS(web.Assets)))
 
 	port := os.Getenv("PORT")

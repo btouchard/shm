@@ -51,7 +51,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://shm:${DB_PASSWORD:-change-me-in-production}@db:5432/metrics?sslmode=disable"
+      SHM_DB_DSN: "postgres://shm:${DB_PASSWORD:-change-me-in-production}@db:5432/metrics?sslmode=disable"
       PORT: "8080"
     ports:
       - "8080:8080"
@@ -74,6 +74,30 @@ docker compose up -d
 ```
 
 The server is now running on port 8080.
+
+---
+
+## Rate Limiting
+
+Rate limiting is enabled by default to protect against abuse.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SHM_RATELIMIT_ENABLED` | `true` | Enable/disable rate limiting |
+| `SHM_RATELIMIT_CLEANUP_INTERVAL` | `10m` | Interval for cleaning up expired limiters |
+| `SHM_RATELIMIT_REGISTER_REQUESTS` | `5` | Max requests per period for `/v1/register` and `/v1/activate` |
+| `SHM_RATELIMIT_REGISTER_PERIOD` | `1m` | Time window for register endpoints |
+| `SHM_RATELIMIT_REGISTER_BURST` | `2` | Burst allowance for register endpoints |
+| `SHM_RATELIMIT_SNAPSHOT_REQUESTS` | `1` | Max requests per period for `/v1/snapshot` (per instance) |
+| `SHM_RATELIMIT_SNAPSHOT_PERIOD` | `1m` | Time window for snapshot endpoint |
+| `SHM_RATELIMIT_SNAPSHOT_BURST` | `2` | Burst allowance for snapshot endpoint |
+| `SHM_RATELIMIT_ADMIN_REQUESTS` | `30` | Max requests per period for `/api/v1/admin/*` |
+| `SHM_RATELIMIT_ADMIN_PERIOD` | `1m` | Time window for admin endpoints |
+| `SHM_RATELIMIT_ADMIN_BURST` | `10` | Burst allowance for admin endpoints |
+| `SHM_RATELIMIT_BRUTEFORCE_THRESHOLD` | `5` | Failed auth attempts before IP ban |
+| `SHM_RATELIMIT_BRUTEFORCE_BAN` | `15m` | Duration of IP ban after brute-force detection |
+
+See [docs/API.md](./docs/API.md) for full API and rate limiting documentation.
 
 ---
 
@@ -156,7 +180,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://shm:${DB_PASSWORD}@db:5432/metrics?sslmode=disable"
+      SHM_DB_DSN: "postgres://shm:${DB_PASSWORD}@db:5432/metrics?sslmode=disable"
       PORT: "8080"
     labels:
       - "traefik.enable=true"
@@ -235,7 +259,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://shm:${DB_PASSWORD}@db:5432/metrics?sslmode=disable"
+      SHM_DB_DSN: "postgres://shm:${DB_PASSWORD}@db:5432/metrics?sslmode=disable"
       PORT: "8080"
     labels:
       - "traefik.enable=true"
@@ -348,8 +372,10 @@ caddy hash-password --plaintext 'your-secure-password'
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | (required) | PostgreSQL connection string |
+| `SHM_DB_DSN` | (required) | PostgreSQL connection string |
 | `PORT` | `8080` | HTTP server port |
+
+For rate limiting configuration, see [README.md](../README.md#rate-limiting).
 
 ---
 
@@ -371,10 +397,11 @@ cat backup_20240115.sql | docker exec -i shm-db psql -U shm metrics
 
 ## Health Checks
 
-The application exposes the dashboard at `/` which can be used for health checks:
+The application exposes a dedicated healthcheck endpoint:
 
 ```bash
-curl -f http://localhost:8080/ || exit 1
+curl -f http://localhost:8080/api/v1/healthcheck || exit 1
+# Returns: {"status":"ok"}
 ```
 
 For Kubernetes or orchestrators:
@@ -382,17 +409,19 @@ For Kubernetes or orchestrators:
 ```yaml
 livenessProbe:
   httpGet:
-    path: /
+    path: /api/v1/healthcheck
     port: 8080
   initialDelaySeconds: 5
   periodSeconds: 10
 readinessProbe:
   httpGet:
-    path: /
+    path: /api/v1/healthcheck
     port: 8080
   initialDelaySeconds: 5
   periodSeconds: 5
 ```
+
+The `/api/v1/healthcheck` endpoint has no rate limiting and no authentication.
 
 ---
 
