@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/btouchard/shm/internal/adapters/postgres"
 	httpAdapter "github.com/btouchard/shm/internal/adapters/http"
+	"github.com/btouchard/shm/internal/adapters/postgres"
 	"github.com/btouchard/shm/internal/config"
 	"github.com/btouchard/shm/internal/middleware"
 	"github.com/btouchard/shm/web"

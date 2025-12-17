@@ -99,9 +99,9 @@ func TestBytesToMB(t *testing.T) {
 		expected uint64
 	}{
 		{0, 0},
-		{1024, 0},           // Less than 1 MB
-		{1024 * 1024, 1},    // Exactly 1 MB
-		{2 * 1024 * 1024, 2}, // 2 MB
+		{1024, 0},                  // Less than 1 MB
+		{1024 * 1024, 1},           // Exactly 1 MB
+		{2 * 1024 * 1024, 2},       // 2 MB
 		{1024 * 1024 * 1024, 1024}, // 1 GB = 1024 MB
 	}
 
