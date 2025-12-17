@@ -4,7 +4,7 @@
 
 ![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=for-the-badge&logo=go)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)
 ![Privacy](https://img.shields.io/badge/Privacy-First-red?style=for-the-badge)
 
 **Privacy-first, Agnostic Telemetry for Self-Hosted Software.**
@@ -46,6 +46,10 @@ When you distribute self-hosted software (on-premise), you fly blind. You don't 
 ---
 
 ## ⚡ Quick Start (Server)
+
+Docker: 
+
+```docker pull ghcr.io/btouchard/shm:latest```
 
 Get the server running in 30 seconds.
 
@@ -178,7 +182,9 @@ Contributions are welcome! Please read the contributing guidelines first.
 
 ## 📄 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the **AGPLv3** License. See `LICENSE` for more information.
+
+The SDK (in the `/sdk` subdirectory) is distributed under the **MIT License** for easier integration into your projects.
 
 ---
 
