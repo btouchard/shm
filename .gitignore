@@ -6,3 +6,6 @@ compose.local.yml
 /migrations/seed.sql
 /CLAUDE.md
 /AGENTS.md
+/sdk/nodejs/node_modules/
+/sdk/nodejs/dist/
+/sdk/nodejs/package-lock.json

@@ -1,0 +1,41 @@
+{
+  "name": "@shm/nodejs-sdk",
+  "version": "1.0.0",
+  "description": "Privacy-first telemetry SDK for self-hosted software",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "test": "npm run build && node --test dist/**/*.test.js",
+    "test:dev": "node --experimental-strip-types --experimental-transform-types --test"
+  },
+  "keywords": [
+    "telemetry",
+    "metrics",
+    "self-hosted",
+    "privacy",
+    "analytics"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
