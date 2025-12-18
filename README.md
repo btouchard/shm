@@ -73,39 +73,60 @@ When you distribute self-hosted software (on-premise), you fly blind. You don't 
 
 ## ⚡ Quick Start (Server)
 
-Docker: 
+### 1. Create the configuration
 
-```docker pull ghcr.io/btouchard/shm:latest```
-
-Get the server running in 30 seconds.
-
-### 1. Create a `compose.yml`
+Create a `compose.yml` file:
 
 ```yaml
-services:
-  shm:
-    image: ghcr.io/btouchard/shm:latest # (Or build locally)
-    ports:
-      - "8080:8080"
-    environment:
-      - SHM_DB_DSN=postgres://user:pass@db:5432/shm?sslmode=disable
-    depends_on:
-      - db
+name: shm
 
+services:
   db:
     image: postgres:15-alpine
+    container_name: shm-db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
-      POSTGRES_DB: shm
+      POSTGRES_USER: shm
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me-in-production}
+      POSTGRES_DB: metrics
     volumes:
-      - shm_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shm -d metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: ghcr.io/btouchard/shm:latest
+    # Or build from source:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    container_name: shm-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SHM_DB_DSN: "postgres://shm:${DB_PASSWORD:-change-me-in-production}@db:5432/metrics?sslmode=disable"
+      PORT: "8080"
+    ports:
+      - "8080:8080"
 
 volumes:
-  shm_data:
+  postgres_data:
 ```
 
-### 2. Run it
+### 2. Download migrations
+
+```bash
+mkdir -p migrations
+curl -sL https://raw.githubusercontent.com/btouchard/shm/main/migrations/001_init.sql -o migrations/001_init.sql
+```
+
+### 3. Start the services
 
 ```bash
 docker compose up -d
