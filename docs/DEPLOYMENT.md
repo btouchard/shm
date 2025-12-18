@@ -184,19 +184,26 @@ services:
       PORT: "8080"
     labels:
       - "traefik.enable=true"
-      # Public routes (telemetry collection) - no auth
-      - "traefik.http.routers.shm-public.rule=Host(`shm.example.com`) && PathPrefix(`/v1/`)"
-      - "traefik.http.routers.shm-public.entrypoints=websecure"
-      - "traefik.http.routers.shm-public.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.shm-public.service=shm"
-      # Protected routes (dashboard + admin API) - with ForwardAuth
-      - "traefik.http.routers.shm-protected.rule=Host(`shm.example.com`) && (PathPrefix(`/api/`) || PathPrefix(`/`))"
-      - "traefik.http.routers.shm-protected.entrypoints=websecure"
-      - "traefik.http.routers.shm-protected.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.shm-protected.middlewares=authelia@docker"
-      - "traefik.http.routers.shm-protected.service=shm"
-      - "traefik.http.routers.shm-protected.priority=1"
-      - "traefik.http.routers.shm-public.priority=2"
+      # Public API routes (telemetry collection + healthcheck) - no auth
+      - "traefik.http.routers.shm-api.rule=Host(`shm.example.com`) && PathPrefix(`/api/v1/`) && !PathPrefix(`/api/v1/admin/`)"
+      - "traefik.http.routers.shm-api.entrypoints=websecure"
+      - "traefik.http.routers.shm-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.shm-api.service=shm"
+      - "traefik.http.routers.shm-api.priority=3"
+      # Protected admin API - with ForwardAuth
+      - "traefik.http.routers.shm-admin.rule=Host(`shm.example.com`) && PathPrefix(`/api/v1/admin/`)"
+      - "traefik.http.routers.shm-admin.entrypoints=websecure"
+      - "traefik.http.routers.shm-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.shm-admin.middlewares=authelia@docker"
+      - "traefik.http.routers.shm-admin.service=shm"
+      - "traefik.http.routers.shm-admin.priority=2"
+      # Protected dashboard (frontend) - with ForwardAuth
+      - "traefik.http.routers.shm-dashboard.rule=Host(`shm.example.com`)"
+      - "traefik.http.routers.shm-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.shm-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.shm-dashboard.middlewares=authelia@docker"
+      - "traefik.http.routers.shm-dashboard.service=shm"
+      - "traefik.http.routers.shm-dashboard.priority=1"
       # Service
       - "traefik.http.services.shm.loadbalancer.server.port=8080"
       # ForwardAuth middleware
@@ -263,19 +270,26 @@ services:
       PORT: "8080"
     labels:
       - "traefik.enable=true"
-      # Public routes (telemetry collection) - no auth required
-      - "traefik.http.routers.shm-public.rule=Host(`shm.example.com`) && PathPrefix(`/v1/`)"
-      - "traefik.http.routers.shm-public.entrypoints=websecure"
-      - "traefik.http.routers.shm-public.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.shm-public.service=shm"
-      - "traefik.http.routers.shm-public.priority=2"
-      # Protected routes (dashboard + admin API) - with Basic Auth
-      - "traefik.http.routers.shm-protected.rule=Host(`shm.example.com`)"
-      - "traefik.http.routers.shm-protected.entrypoints=websecure"
-      - "traefik.http.routers.shm-protected.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.shm-protected.middlewares=shm-auth"
-      - "traefik.http.routers.shm-protected.service=shm"
-      - "traefik.http.routers.shm-protected.priority=1"
+      # Public API routes (telemetry collection + healthcheck) - no auth
+      - "traefik.http.routers.shm-api.rule=Host(`shm.example.com`) && PathPrefix(`/api/v1/`) && !PathPrefix(`/api/v1/admin/`)"
+      - "traefik.http.routers.shm-api.entrypoints=websecure"
+      - "traefik.http.routers.shm-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.shm-api.service=shm"
+      - "traefik.http.routers.shm-api.priority=3"
+      # Protected admin API - with Basic Auth
+      - "traefik.http.routers.shm-admin.rule=Host(`shm.example.com`) && PathPrefix(`/api/v1/admin/`)"
+      - "traefik.http.routers.shm-admin.entrypoints=websecure"
+      - "traefik.http.routers.shm-admin.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.shm-admin.middlewares=shm-auth"
+      - "traefik.http.routers.shm-admin.service=shm"
+      - "traefik.http.routers.shm-admin.priority=2"
+      # Protected dashboard (frontend) - with Basic Auth
+      - "traefik.http.routers.shm-dashboard.rule=Host(`shm.example.com`)"
+      - "traefik.http.routers.shm-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.shm-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.shm-dashboard.middlewares=shm-auth"
+      - "traefik.http.routers.shm-dashboard.service=shm"
+      - "traefik.http.routers.shm-dashboard.priority=1"
       # Service
       - "traefik.http.services.shm.loadbalancer.server.port=8080"
       # Basic Auth middleware (generate with: htpasswd -nb admin password)
@@ -311,8 +325,20 @@ server {
     ssl_certificate /etc/letsencrypt/live/shm.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/shm.example.com/privkey.pem;
 
-    # Public telemetry endpoints - no auth
-    location /v1/ {
+    # Public API (telemetry + healthcheck) - no auth
+    location /api/v1/ {
+        # Exclude admin endpoints
+        location /api/v1/admin/ {
+            auth_basic "SHM Admin";
+            auth_basic_user_file /etc/nginx/.htpasswd;
+
+            proxy_pass http://shm;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
         proxy_pass http://shm;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -320,7 +346,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Protected dashboard and admin API
+    # Protected dashboard (frontend)
     location / {
         auth_basic "SHM Dashboard";
         auth_basic_user_file /etc/nginx/.htpasswd;
@@ -344,13 +370,16 @@ htpasswd -c /etc/nginx/.htpasswd admin
 
 ```caddyfile
 shm.example.com {
-    # Public telemetry endpoints
-    @public path /v1/*
-    handle @public {
+    # Public API (telemetry + healthcheck) - no auth
+    @public_api {
+        path /api/v1/*
+        not path /api/v1/admin/*
+    }
+    handle @public_api {
         reverse_proxy localhost:8080
     }
 
-    # Protected dashboard
+    # Protected admin API and dashboard
     handle {
         basicauth {
             admin $2a$14$... # bcrypt hash
