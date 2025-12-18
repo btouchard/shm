@@ -3,6 +3,7 @@
 <div align="center">
 
 ![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go)
+![Node.js](https://img.shields.io/badge/Node.js-22+-339933?style=for-the-badge&logo=node.js)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)
 ![License](https://img.shields.io/badge/License-AGPLv3-green?style=for-the-badge)
 ![Privacy](https://img.shields.io/badge/Privacy-First-red?style=for-the-badge)
@@ -172,10 +173,52 @@ func main() {
     // 3. Start in background
     // SHM automatically adds System metrics (CPU, RAM, OS, Arch...)
     go telemetry.Start(context.Background())
-    
+
     // ... run your app
 }
 ```
+
+---
+
+## 📦 SDK Integration (Node.js / TypeScript)
+
+Embed the telemetry client into your Node.js application.
+
+```bash
+npm install @btouchard/shm-sdk
+```
+
+### Implementation Example
+
+```typescript
+import { SHMClient } from '@btouchard/shm-sdk';
+
+// 1. Configure the client
+const telemetry = new SHMClient({
+    serverUrl: 'https://metrics.your-domain.com',
+    appName: 'MyAwesomeApp',
+    appVersion: '1.0.0',
+    environment: 'production',
+    enabled: true,
+});
+
+// 2. Define your metrics (Callback)
+// This runs every hour (configurable)
+telemetry.setProvider(() => ({
+    documents_created: db.countDocs(),     // Business Metric
+    users_active: db.countActive(),        // Business Metric
+    jobs_processed: worker.totalJobs(),    // Business Metric
+}));
+
+// 3. Start in background
+// SHM automatically adds System metrics (CPU, RAM, OS, Arch...)
+const controller = telemetry.start();
+
+// To stop later:
+// controller.abort();
+```
+
+> **Note:** Requires Node.js >= 22 LTS. Zero external dependencies.
 
 ---
 
