@@ -1,5 +1,5 @@
 {
-  "name": "@shm/nodejs-sdk",
+  "name": "@btouchard/shm-sdk",
   "version": "1.0.0",
   "description": "Privacy-first telemetry SDK for self-hosted software",
   "type": "module",
@@ -29,8 +29,17 @@
     "privacy",
     "analytics"
   ],
-  "author": "",
+  "author": "Benjamin Touchard",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/btouchard/shm.git",
+    "directory": "sdk/nodejs"
+  },
+  "homepage": "https://github.com/btouchard/shm/tree/main/sdk/nodejs#readme",
+  "bugs": {
+    "url": "https://github.com/btouchard/shm/issues"
+  },
   "engines": {
     "node": ">=22.0.0"
   },

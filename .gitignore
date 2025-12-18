@@ -9,3 +9,6 @@ compose.local.yml
 /sdk/nodejs/node_modules/
 /sdk/nodejs/dist/
 /sdk/nodejs/package-lock.json
+/sdk/nodejs/Dockerfile.test
+/sdk/nodejs/test-client.ts
+/compose.nodejs.yml
