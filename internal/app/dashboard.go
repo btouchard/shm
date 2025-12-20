@@ -107,3 +107,41 @@ func (s *DashboardService) GetMetricsTimeSeries(ctx context.Context, appName str
 
 	return data, nil
 }
+
+// Badge-specific methods
+
+// GetActiveInstancesCount returns the count of active instances for an app.
+func (s *DashboardService) GetActiveInstancesCount(ctx context.Context, appSlug string) (int, error) {
+	count, err := s.reader.GetActiveInstancesCount(ctx, appSlug)
+	if err != nil {
+		return 0, fmt.Errorf("get active instances count: %w", err)
+	}
+	return count, nil
+}
+
+// GetMostUsedVersion returns the most commonly used version for an app.
+func (s *DashboardService) GetMostUsedVersion(ctx context.Context, appSlug string) (string, error) {
+	version, err := s.reader.GetMostUsedVersion(ctx, appSlug)
+	if err != nil {
+		return "", fmt.Errorf("get most used version: %w", err)
+	}
+	return version, nil
+}
+
+// GetAggregatedMetric sums a specific metric across all active instances of an app.
+func (s *DashboardService) GetAggregatedMetric(ctx context.Context, appSlug, metricName string) (float64, error) {
+	value, err := s.reader.GetAggregatedMetric(ctx, appSlug, metricName)
+	if err != nil {
+		return 0, fmt.Errorf("get aggregated metric: %w", err)
+	}
+	return value, nil
+}
+
+// GetCombinedStats returns both an aggregated metric and instance count.
+func (s *DashboardService) GetCombinedStats(ctx context.Context, appSlug, metricName string) (float64, int, error) {
+	metricValue, instanceCount, err := s.reader.GetCombinedStats(ctx, appSlug, metricName)
+	if err != nil {
+		return 0, 0, fmt.Errorf("get combined stats: %w", err)
+	}
+	return metricValue, instanceCount, nil
+}

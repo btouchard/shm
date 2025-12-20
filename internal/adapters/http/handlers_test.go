@@ -115,6 +115,22 @@ func (m *mockDashboardReader) GetMetricsTimeSeries(ctx context.Context, appName 
 	}, nil
 }
 
+func (m *mockDashboardReader) GetActiveInstancesCount(ctx context.Context, appSlug string) (int, error) {
+	return 0, nil
+}
+
+func (m *mockDashboardReader) GetMostUsedVersion(ctx context.Context, appSlug string) (string, error) {
+	return "", nil
+}
+
+func (m *mockDashboardReader) GetAggregatedMetric(ctx context.Context, appSlug, metricName string) (float64, error) {
+	return 0, nil
+}
+
+func (m *mockDashboardReader) GetCombinedStats(ctx context.Context, appSlug, metricName string) (float64, int, error) {
+	return 0, 0, nil
+}
+
 // mockApplicationRepo for HTTP tests
 type mockApplicationRepo struct {
 	apps map[string]*domain.Application

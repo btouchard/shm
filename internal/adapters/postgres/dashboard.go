@@ -216,3 +216,116 @@ func (r *DashboardReader) GetMetricsTimeSeries(ctx context.Context, appName stri
 
 	return result, nil
 }
+
+// GetActiveInstancesCount returns the count of active instances for an app.
+func (r *DashboardReader) GetActiveInstancesCount(ctx context.Context, appSlug string) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM instances i
+		JOIN applications a ON i.application_id = a.id
+		WHERE a.app_slug = $1
+		  AND i.last_seen_at > NOW() - INTERVAL '30 days'
+	`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query, appSlug).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("get active instances count: %w", err)
+	}
+
+	return count, nil
+}
+
+// GetMostUsedVersion returns the most commonly used version for an app.
+func (r *DashboardReader) GetMostUsedVersion(ctx context.Context, appSlug string) (string, error) {
+	query := `
+		SELECT i.app_version
+		FROM instances i
+		JOIN applications a ON i.application_id = a.id
+		WHERE a.app_slug = $1
+		  AND i.last_seen_at > NOW() - INTERVAL '30 days'
+		GROUP BY i.app_version
+		ORDER BY COUNT(*) DESC
+		LIMIT 1
+	`
+
+	var version string
+	err := r.db.QueryRowContext(ctx, query, appSlug).Scan(&version)
+	if err == sql.ErrNoRows {
+		return "", nil // No instances found
+	}
+	if err != nil {
+		return "", fmt.Errorf("get most used version: %w", err)
+	}
+
+	return version, nil
+}
+
+// GetAggregatedMetric sums a specific metric across all active instances of an app.
+func (r *DashboardReader) GetAggregatedMetric(ctx context.Context, appSlug, metricName string) (float64, error) {
+	query := `
+		SELECT COALESCE(SUM((s.data->>$3)::numeric), 0)
+		FROM (
+			SELECT DISTINCT ON (i.instance_id) i.instance_id, s.data
+			FROM instances i
+			JOIN applications a ON i.application_id = a.id
+			LEFT JOIN LATERAL (
+				SELECT data
+				FROM snapshots
+				WHERE instance_id = i.instance_id
+				  AND data ? $3
+				ORDER BY snapshot_at DESC
+				LIMIT 1
+			) s ON true
+			WHERE a.app_slug = $1
+			  AND i.last_seen_at > NOW() - INTERVAL '30 days'
+			  AND s.data IS NOT NULL
+		) latest
+	`
+
+	var total float64
+	err := r.db.QueryRowContext(ctx, query, appSlug, appSlug, metricName).Scan(&total)
+	if err != nil {
+		return 0, fmt.Errorf("get aggregated metric: %w", err)
+	}
+
+	return total, nil
+}
+
+// GetCombinedStats returns both an aggregated metric and instance count.
+func (r *DashboardReader) GetCombinedStats(ctx context.Context, appSlug, metricName string) (float64, int, error) {
+	query := `
+		WITH latest_metrics AS (
+			SELECT DISTINCT ON (i.instance_id)
+				i.instance_id,
+				(s.data->>$2)::numeric as metric_value
+			FROM instances i
+			JOIN applications a ON i.application_id = a.id
+			LEFT JOIN LATERAL (
+				SELECT data
+				FROM snapshots
+				WHERE instance_id = i.instance_id
+				  AND data ? $2
+				ORDER BY snapshot_at DESC
+				LIMIT 1
+			) s ON true
+			WHERE a.app_slug = $1
+			  AND i.last_seen_at > NOW() - INTERVAL '30 days'
+			  AND s.data IS NOT NULL
+		)
+		SELECT
+			COALESCE(SUM(metric_value), 0) as total,
+			COUNT(*) as instances
+		FROM latest_metrics
+	`
+
+	var metricValue float64
+	var instanceCount int
+
+	err := r.db.QueryRowContext(ctx, query, appSlug, metricName).Scan(&metricValue, &instanceCount)
+	if err != nil {
+		return 0, 0, fmt.Errorf("get combined stats: %w", err)
+	}
+
+	return metricValue, instanceCount, nil
+}

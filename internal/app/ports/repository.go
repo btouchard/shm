@@ -109,4 +109,22 @@ type DashboardReader interface {
 
 	// GetMetricsTimeSeries returns time-series metrics for an app.
 	GetMetricsTimeSeries(ctx context.Context, appName string, since time.Time) (MetricsTimeSeries, error)
+
+	// Badge-specific queries
+
+	// GetActiveInstancesCount returns the count of active instances for an app.
+	// Active = last_seen_at within the last 30 days.
+	GetActiveInstancesCount(ctx context.Context, appSlug string) (int, error)
+
+	// GetMostUsedVersion returns the most commonly used version for an app.
+	// Returns empty string if no instances found.
+	GetMostUsedVersion(ctx context.Context, appSlug string) (string, error)
+
+	// GetAggregatedMetric sums a specific metric across all active instances of an app.
+	// Returns 0 if metric not found or no active instances.
+	GetAggregatedMetric(ctx context.Context, appSlug, metricName string) (float64, error)
+
+	// GetCombinedStats returns both an aggregated metric and instance count.
+	// Used for the combined badge (e.g., "1.2k users / 42 inst").
+	GetCombinedStats(ctx context.Context, appSlug, metricName string) (metricValue float64, instanceCount int, err error)
 }

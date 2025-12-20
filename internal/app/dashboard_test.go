@@ -13,12 +13,18 @@ import (
 
 // mockDashboardReader is a test double for ports.DashboardReader.
 type mockDashboardReader struct {
-	stats      ports.DashboardStats
-	instances  []ports.InstanceSummary
-	timeSeries ports.MetricsTimeSeries
-	statsErr   error
-	listErr    error
-	tsErr      error
+	stats         ports.DashboardStats
+	instances     []ports.InstanceSummary
+	timeSeries    ports.MetricsTimeSeries
+	statsErr      error
+	listErr       error
+	tsErr         error
+	// Badge-specific fields
+	instanceCount int
+	version       string
+	metricValue   float64
+	combinedCount int
+	badgeErr      error
 }
 
 func (m *mockDashboardReader) GetStats(ctx context.Context) (ports.DashboardStats, error) {
@@ -43,6 +49,34 @@ func (m *mockDashboardReader) GetMetricsTimeSeries(ctx context.Context, appName 
 		return ports.MetricsTimeSeries{}, m.tsErr
 	}
 	return m.timeSeries, nil
+}
+
+func (m *mockDashboardReader) GetActiveInstancesCount(ctx context.Context, appSlug string) (int, error) {
+	if m.badgeErr != nil {
+		return 0, m.badgeErr
+	}
+	return m.instanceCount, nil
+}
+
+func (m *mockDashboardReader) GetMostUsedVersion(ctx context.Context, appSlug string) (string, error) {
+	if m.badgeErr != nil {
+		return "", m.badgeErr
+	}
+	return m.version, nil
+}
+
+func (m *mockDashboardReader) GetAggregatedMetric(ctx context.Context, appSlug, metricName string) (float64, error) {
+	if m.badgeErr != nil {
+		return 0, m.badgeErr
+	}
+	return m.metricValue, nil
+}
+
+func (m *mockDashboardReader) GetCombinedStats(ctx context.Context, appSlug, metricName string) (float64, int, error) {
+	if m.badgeErr != nil {
+		return 0, 0, m.badgeErr
+	}
+	return m.metricValue, m.combinedCount, nil
 }
 
 func TestDashboardService_GetStats(t *testing.T) {

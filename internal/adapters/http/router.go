@@ -6,6 +6,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/btouchard/shm/internal/adapters/github"
 	"github.com/btouchard/shm/internal/adapters/postgres"
@@ -60,6 +61,24 @@ func NewRouter(cfg RouterConfig) *http.ServeMux {
 
 	// Health check (no auth, no rate limit)
 	mux.HandleFunc("/api/v1/healthcheck", handlers.Healthcheck)
+
+	// Badge endpoints (public, no auth, no rate limit)
+	mux.HandleFunc("/badge/", func(w http.ResponseWriter, r *http.Request) {
+		// Route to appropriate badge handler based on path suffix
+		path := r.URL.Path
+		switch {
+		case strings.HasSuffix(path, "/instances"):
+			handlers.BadgeInstances(w, r)
+		case strings.HasSuffix(path, "/version"):
+			handlers.BadgeVersion(w, r)
+		case strings.HasSuffix(path, "/combined"):
+			handlers.BadgeCombined(w, r)
+		case strings.Contains(path, "/metric/"):
+			handlers.BadgeMetric(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
 
 	// Client endpoints
 	rl := cfg.RateLimiter

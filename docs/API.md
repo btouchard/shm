@@ -369,6 +369,148 @@ All limits are configurable via environment variables. See [README.md](../README
 
 ---
 
+## Public Badge Endpoints
+
+SHM provides public SVG badge endpoints for displaying metrics in README files and documentation. These endpoints require no authentication and have no rate limiting.
+
+All badges return SVG images with:
+- **Content-Type:** `image/svg+xml;charset=utf-8`
+- **Cache-Control:** `public, max-age=300` (5 minutes)
+- **Active instances:** Defined as instances with `last_seen_at` within the last 30 days
+
+### GET /badge/{app-slug}/instances
+
+Returns a badge showing the count of active instances for an application.
+
+**Parameters:**
+
+| Parameter | Location | Type | Required | Description |
+|-----------|----------|------|----------|-------------|
+| `app-slug` | Path | string | Yes | Application slug |
+| `color` | Query | string | No | Custom hex color (without #) |
+| `label` | Query | string | No | Custom label text (default: "instances") |
+
+**Example:**
+
+```
+GET /badge/my-app/instances
+GET /badge/my-app/instances?color=00D084&label=deployments
+```
+
+**Response:**
+
+SVG image with format: `[label] [count]`
+
+Color-coded based on count:
+- Green (#00D084): ≥10 instances
+- Yellow (#F59E0B): 5-9 instances
+- Red (#EF4444): <5 instances
+
+---
+
+### GET /badge/{app-slug}/version
+
+Returns a badge showing the most commonly used version for an application.
+
+**Parameters:**
+
+| Parameter | Location | Type | Required | Description |
+|-----------|----------|------|----------|-------------|
+| `app-slug` | Path | string | Yes | Application slug |
+| `color` | Query | string | No | Custom hex color (without #, default: purple) |
+| `label` | Query | string | No | Custom label text (default: "version") |
+
+**Example:**
+
+```
+GET /badge/my-app/version
+GET /badge/my-app/version?color=8B5CF6&label=latest
+```
+
+**Response:**
+
+SVG image with format: `[label] [version]`
+
+If no active instances are found, displays "no data".
+
+---
+
+### GET /badge/{app-slug}/metric/{metric-name}
+
+Returns a badge showing an aggregated metric value across all active instances.
+
+**Parameters:**
+
+| Parameter | Location | Type | Required | Description |
+|-----------|----------|------|----------|-------------|
+| `app-slug` | Path | string | Yes | Application slug |
+| `metric-name` | Path | string | Yes | Name of the metric to aggregate |
+| `color` | Query | string | No | Custom hex color (without #) |
+| `label` | Query | string | No | Custom label text (default: metric name) |
+
+**Example:**
+
+```
+GET /badge/my-app/metric/users_count
+GET /badge/my-app/metric/documents_count?label=documents
+```
+
+**Response:**
+
+SVG image with format: `[label] [value]`
+
+The metric value is summed across all active instances. Numbers are formatted compactly:
+- 1000+ → "1.0k"
+- 1000000+ → "1.0M"
+- 1000000000+ → "1.0B"
+
+Color-coded based on value:
+- Green (#00D084): ≥1000
+- Yellow (#F59E0B): 100-999
+- Red (#EF4444): <100
+
+---
+
+### GET /badge/{app-slug}/combined
+
+Returns a combined badge showing both an aggregated metric value and instance count.
+
+**Parameters:**
+
+| Parameter | Location | Type | Required | Description |
+|-----------|----------|------|----------|-------------|
+| `app-slug` | Path | string | Yes | Application slug |
+| `metric` | Query | string | No | Metric to aggregate (default: "users_count") |
+| `color` | Query | string | No | Custom hex color (without #, default: indigo) |
+| `label` | Query | string | No | Custom label text (default: "adoption") |
+
+**Example:**
+
+```
+GET /badge/my-app/combined
+GET /badge/my-app/combined?metric=documents_count&label=usage
+```
+
+**Response:**
+
+SVG image with format: `[label] [metric] / [instances]`
+
+Example output: "adoption 1.2k / 42" (1.2k users across 42 instances)
+
+---
+
+### Error Badges
+
+If an error occurs (invalid slug, metric not found, database error), the endpoint returns a red error badge instead of failing:
+
+```
+[error] [error message]
+```
+
+This ensures badges remain functional even when data is temporarily unavailable.
+
+---
+
 ## Admin API
 
 The following endpoints are intended for administrative use and are not used by instances.
