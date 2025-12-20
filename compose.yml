@@ -22,6 +22,8 @@ services:
       POSTGRES_DB: metrics
     ports:
       - "5432:5432"
+    labels:
+      - docker-volume-backup.stop-during-backup=true
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d
@@ -30,6 +32,20 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  backup:
+    image: offen/docker-volume-backup:v2.46.1
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - postgres_data:/backup/shm-backup:ro
+      - ./backup:/archive # OR STORE ON S3
+    environment:
+      BACKUP_CRON_EXPRESSION: "@daily"
+      BACKUP_FILENAME: "shm-%Y-%m-%dT%H-%M-%S.{{ .Extension }}"
+      BACKUP_PRUNING_PREFIX: "shm-"
+      BACKUP_RETENTION_DAYS: 7
 
 volumes:
   postgres_data:
