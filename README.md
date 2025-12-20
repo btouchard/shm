@@ -40,6 +40,7 @@ When you distribute self-hosted software (on-premise), you fly blind. You don't 
 
 - **🔐 Cryptographic Identity:** Instances generate a unique ID and keypair. No spoofing possible.
 - **📦 Multi-App Support:** Track multiple software products on a single SHM server.
+- **⭐ GitHub Stars:** Automatically fetch and display GitHub repository stars for your applications.
 - **🎨 Dynamic Dashboard:** Send `{"pizzas_eaten": 10}` and SHM automatically creates the KPI cards and table columns.
 - **⚙️ Ops vs Business Separation:** Automatically distinguishes between business metrics (KPIs) and system metrics (CPU, RAM, OS).
 - **🐳 Docker Native:** Runs anywhere with a simple `docker-compose`.
@@ -124,6 +125,7 @@ volumes:
 ```bash
 mkdir -p migrations
 curl -sL https://raw.githubusercontent.com/btouchard/shm/main/migrations/001_init.sql -o migrations/001_init.sql
+curl -sL https://raw.githubusercontent.com/btouchard/shm/main/migrations/002_applications.sql -o migrations/002_applications.sql
 ```
 
 ### 3. Start the services
@@ -140,6 +142,7 @@ Access the dashboard at **http://localhost:8080**.
 |----------|---------|-------------|
 | `SHM_DB_DSN` | `postgres://user:password@localhost:5432/metrics?sslmode=disable` | PostgreSQL connection string |
 | `PORT` | `8080` | HTTP server port |
+| `GITHUB_TOKEN` | - | Optional GitHub Personal Access Token for higher API rate limits (5000 req/h instead of 60 req/h) |
 
 #### Rate Limiting
 

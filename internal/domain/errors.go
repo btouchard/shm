@@ -21,6 +21,13 @@ var (
 	ErrInvalidSnapshot = errors.New("invalid snapshot")
 	ErrInvalidMetrics  = errors.New("invalid metrics")
 
+	// Application errors
+	ErrApplicationNotFound = errors.New("application not found")
+	ErrInvalidApplicationID = errors.New("invalid application ID")
+	ErrInvalidAppSlug      = errors.New("invalid application slug")
+	ErrInvalidGitHubURL    = errors.New("invalid GitHub URL")
+	ErrInvalidApplication  = errors.New("invalid application")
+
 	// Authentication errors
 	ErrInvalidSignature = errors.New("invalid signature")
 	ErrMissingSignature = errors.New("missing signature")

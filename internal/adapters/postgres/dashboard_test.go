@@ -70,8 +70,10 @@ func TestDashboardReader_ListInstances(t *testing.T) {
 		rows := sqlmock.NewRows([]string{
 			"instance_id", "app_name", "app_version", "environment",
 			"status", "last_seen_at", "deployment_mode", "data",
+			"app_slug", "github_url", "github_stars", "logo_url",
 		}).
-			AddRow(testUUID, "myapp", "1.0", "prod", "active", now, "docker", `{"cpu": 0.5}`)
+			AddRow(testUUID, "myapp", "1.0", "prod", "active", now, "docker", `{"cpu": 0.5}`,
+				"myapp", "https://github.com/owner/repo", 42, "https://example.com/logo.png")
 
 		mock.ExpectQuery("SELECT.+FROM instances").
 			WithArgs(50).

@@ -53,18 +53,49 @@ type DashboardStats struct {
 type InstanceSummary struct {
 	ID             domain.InstanceID
 	AppName        string
+	AppSlug        string // From applications table
 	AppVersion     string
 	Environment    string
 	Status         domain.InstanceStatus
 	DeploymentMode string
 	LastSeenAt     time.Time
 	Metrics        domain.Metrics
+	// Application metadata
+	GitHubURL   string
+	GitHubStars int
+	LogoURL     string
 }
 
 // MetricsTimeSeries holds time-series data for charting.
 type MetricsTimeSeries struct {
 	Timestamps []time.Time
 	Metrics    map[string][]float64
+}
+
+// ApplicationRepository defines persistence operations for applications.
+type ApplicationRepository interface {
+	// Save persists an application (insert or update).
+	Save(ctx context.Context, app *domain.Application) error
+
+	// FindByID retrieves an application by its ID.
+	// Returns domain.ErrApplicationNotFound if not found.
+	FindByID(ctx context.Context, id domain.ApplicationID) (*domain.Application, error)
+
+	// FindBySlug retrieves an application by its slug.
+	// Returns domain.ErrApplicationNotFound if not found.
+	FindBySlug(ctx context.Context, slug domain.AppSlug) (*domain.Application, error)
+
+	// List retrieves all applications, limited by the specified count.
+	List(ctx context.Context, limit int) ([]*domain.Application, error)
+
+	// UpdateStars updates only the GitHub stars count and timestamp.
+	UpdateStars(ctx context.Context, id domain.ApplicationID, stars int) error
+}
+
+// GitHubService defines external GitHub API operations.
+type GitHubService interface {
+	// GetStars fetches the current star count for a GitHub repository.
+	GetStars(ctx context.Context, repoURL domain.GitHubURL) (int, error)
 }
 
 // DashboardReader defines read operations for the dashboard.

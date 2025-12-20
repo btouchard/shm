@@ -24,6 +24,11 @@ func newMockInstanceRepo() *mockInstanceRepo {
 	}
 }
 
+// Helper to create a test ApplicationService (reuses mocks from application_test.go)
+func newTestApplicationService() *ApplicationService {
+	return NewApplicationService(newMockApplicationRepository(), &mockGitHubService{}, nil)
+}
+
 func (m *mockInstanceRepo) Save(ctx context.Context, instance *domain.Instance) error {
 	if m.saveErr != nil {
 		return m.saveErr
@@ -77,7 +82,7 @@ func TestInstanceService_Register(t *testing.T) {
 
 	t.Run("registers new instance", func(t *testing.T) {
 		repo := newMockInstanceRepo()
-		svc := NewInstanceService(repo)
+		svc := NewInstanceService(repo, newTestApplicationService())
 
 		err := svc.Register(ctx, RegisterInstanceInput{
 			InstanceID:     validUUID,
@@ -104,7 +109,7 @@ func TestInstanceService_Register(t *testing.T) {
 
 	t.Run("updates existing instance", func(t *testing.T) {
 		repo := newMockInstanceRepo()
-		svc := NewInstanceService(repo)
+		svc := NewInstanceService(repo, newTestApplicationService())
 
 		// Register first time
 		_ = svc.Register(ctx, RegisterInstanceInput{
@@ -140,7 +145,7 @@ func TestInstanceService_Register(t *testing.T) {
 
 	t.Run("rejects invalid instance ID", func(t *testing.T) {
 		repo := newMockInstanceRepo()
-		svc := NewInstanceService(repo)
+		svc := NewInstanceService(repo, newTestApplicationService())
 
 		err := svc.Register(ctx, RegisterInstanceInput{
 			InstanceID: "invalid",
@@ -155,7 +160,7 @@ func TestInstanceService_Register(t *testing.T) {
 
 	t.Run("rejects invalid public key", func(t *testing.T) {
 		repo := newMockInstanceRepo()
-		svc := NewInstanceService(repo)
+		svc := NewInstanceService(repo, newTestApplicationService())
 
 		err := svc.Register(ctx, RegisterInstanceInput{
 			InstanceID: validUUID,
@@ -174,7 +179,7 @@ func TestInstanceService_Activate(t *testing.T) {
 
 	t.Run("activates pending instance", func(t *testing.T) {
 		repo := newMockInstanceRepo()
-		svc := NewInstanceService(repo)
+		svc := NewInstanceService(repo, newTestApplicationService())
 
 		// Create pending instance
 		inst, _ := domain.NewInstance(validUUID, validKey, "myapp", "1.0", "docker", "prod", "linux/amd64")
@@ -192,7 +197,7 @@ func TestInstanceService_Activate(t *testing.T) {
 
 	t.Run("fails for non-existent instance", func(t *testing.T) {
 		repo := newMockInstanceRepo()
-		svc := NewInstanceService(repo)
+		svc := NewInstanceService(repo, newTestApplicationService())
 
 		err := svc.Activate(ctx, validUUID)
 
@@ -203,7 +208,7 @@ func TestInstanceService_Activate(t *testing.T) {
 
 	t.Run("fails for already active instance", func(t *testing.T) {
 		repo := newMockInstanceRepo()
-		svc := NewInstanceService(repo)
+		svc := NewInstanceService(repo, newTestApplicationService())
 
 		// Create active instance
 		inst, _ := domain.NewInstance(validUUID, validKey, "myapp", "1.0", "docker", "prod", "linux/amd64")
@@ -223,7 +228,7 @@ func TestInstanceService_GetPublicKey(t *testing.T) {
 
 	t.Run("returns public key", func(t *testing.T) {
 		repo := newMockInstanceRepo()
-		svc := NewInstanceService(repo)
+		svc := NewInstanceService(repo, newTestApplicationService())
 
 		inst, _ := domain.NewInstance(validUUID, validKey, "myapp", "1.0", "docker", "prod", "linux/amd64")
 		repo.instances[validUUID] = inst
@@ -239,7 +244,7 @@ func TestInstanceService_GetPublicKey(t *testing.T) {
 
 	t.Run("fails for revoked instance", func(t *testing.T) {
 		repo := newMockInstanceRepo()
-		svc := NewInstanceService(repo)
+		svc := NewInstanceService(repo, newTestApplicationService())
 
 		inst, _ := domain.NewInstance(validUUID, validKey, "myapp", "1.0", "docker", "prod", "linux/amd64")
 		_ = inst.Revoke()
@@ -257,7 +262,7 @@ func TestInstanceService_Revoke(t *testing.T) {
 
 	t.Run("revokes active instance", func(t *testing.T) {
 		repo := newMockInstanceRepo()
-		svc := NewInstanceService(repo)
+		svc := NewInstanceService(repo, newTestApplicationService())
 
 		inst, _ := domain.NewInstance(validUUID, validKey, "myapp", "1.0", "docker", "prod", "linux/amd64")
 		_ = inst.Activate()
