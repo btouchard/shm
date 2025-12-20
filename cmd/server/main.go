@@ -47,10 +47,17 @@ func main() {
 		logger.Info("rate limiting enabled")
 	}
 
+	// Get optional GitHub token for higher API rate limits
+	githubToken := os.Getenv("GITHUB_TOKEN")
+	if githubToken != "" {
+		logger.Info("GitHub token configured (higher rate limits enabled)")
+	}
+
 	// Create router with all dependencies
 	router := httpAdapter.NewRouter(httpAdapter.RouterConfig{
 		Store:       store,
 		RateLimiter: rl,
+		GitHubToken: githubToken,
 		Logger:      logger,
 	})
 

@@ -115,6 +115,60 @@ func (m *mockDashboardReader) GetMetricsTimeSeries(ctx context.Context, appName 
 	}, nil
 }
 
+// mockApplicationRepo for HTTP tests
+type mockApplicationRepo struct {
+	apps map[string]*domain.Application
+}
+
+func newMockApplicationRepo() *mockApplicationRepo {
+	return &mockApplicationRepo{apps: make(map[string]*domain.Application)}
+}
+
+func (m *mockApplicationRepo) Save(ctx context.Context, app *domain.Application) error {
+	m.apps[app.Slug.String()] = app
+	return nil
+}
+
+func (m *mockApplicationRepo) FindByID(ctx context.Context, id domain.ApplicationID) (*domain.Application, error) {
+	for _, app := range m.apps {
+		if app.ID == id {
+			return app, nil
+		}
+	}
+	return nil, domain.ErrApplicationNotFound
+}
+
+func (m *mockApplicationRepo) FindBySlug(ctx context.Context, slug domain.AppSlug) (*domain.Application, error) {
+	if app, ok := m.apps[slug.String()]; ok {
+		return app, nil
+	}
+	return nil, domain.ErrApplicationNotFound
+}
+
+func (m *mockApplicationRepo) List(ctx context.Context, limit int) ([]*domain.Application, error) {
+	result := make([]*domain.Application, 0)
+	for _, app := range m.apps {
+		result = append(result, app)
+	}
+	return result, nil
+}
+
+func (m *mockApplicationRepo) UpdateStars(ctx context.Context, id domain.ApplicationID, stars int) error {
+	return nil
+}
+
+// mockGitHubService for HTTP tests
+type mockGitHubService struct{}
+
+func (m *mockGitHubService) GetStars(ctx context.Context, repoURL domain.GitHubURL) (int, error) {
+	return 0, nil
+}
+
+// Helper to create a test ApplicationService
+func newTestApplicationService() *app.ApplicationService {
+	return app.NewApplicationService(newMockApplicationRepo(), &mockGitHubService{}, nil)
+}
+
 func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 }
@@ -124,11 +178,11 @@ func TestHandlers_Healthcheck(t *testing.T) {
 	snapshotRepo := &mockSnapshotRepo{}
 	dashboardReader := &mockDashboardReader{}
 
-	instanceSvc := app.NewInstanceService(instanceRepo)
+	instanceSvc := app.NewInstanceService(instanceRepo, nil)
 	snapshotSvc := app.NewSnapshotService(snapshotRepo, instanceRepo)
 	dashboardSvc := app.NewDashboardService(dashboardReader)
 
-	handlers := NewHandlers(instanceSvc, snapshotSvc, dashboardSvc, testLogger())
+	handlers := NewHandlers(instanceSvc, snapshotSvc, nil, dashboardSvc, testLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/healthcheck", nil)
 	rec := httptest.NewRecorder()
@@ -149,10 +203,11 @@ func TestHandlers_Healthcheck(t *testing.T) {
 func TestHandlers_Register(t *testing.T) {
 	t.Run("registers new instance", func(t *testing.T) {
 		instanceRepo := newMockInstanceRepo()
-		instanceSvc := app.NewInstanceService(instanceRepo)
+		appSvc := newTestApplicationService()
+		instanceSvc := app.NewInstanceService(instanceRepo, appSvc)
 		snapshotSvc := app.NewSnapshotService(&mockSnapshotRepo{}, instanceRepo)
 		dashboardSvc := app.NewDashboardService(&mockDashboardReader{})
-		handlers := NewHandlers(instanceSvc, snapshotSvc, dashboardSvc, testLogger())
+		handlers := NewHandlers(instanceSvc, snapshotSvc, nil, dashboardSvc, testLogger())
 
 		body := `{
 			"instance_id": "` + testUUID + `",
@@ -176,10 +231,11 @@ func TestHandlers_Register(t *testing.T) {
 
 	t.Run("rejects invalid JSON", func(t *testing.T) {
 		instanceRepo := newMockInstanceRepo()
-		instanceSvc := app.NewInstanceService(instanceRepo)
+		appSvc := newTestApplicationService()
+		instanceSvc := app.NewInstanceService(instanceRepo, appSvc)
 		snapshotSvc := app.NewSnapshotService(&mockSnapshotRepo{}, instanceRepo)
 		dashboardSvc := app.NewDashboardService(&mockDashboardReader{})
-		handlers := NewHandlers(instanceSvc, snapshotSvc, dashboardSvc, testLogger())
+		handlers := NewHandlers(instanceSvc, snapshotSvc, nil, dashboardSvc, testLogger())
 
 		req := httptest.NewRequest(http.MethodPost, "/v1/register", strings.NewReader("{invalid"))
 		rec := httptest.NewRecorder()
@@ -192,7 +248,7 @@ func TestHandlers_Register(t *testing.T) {
 	})
 
 	t.Run("rejects non-POST", func(t *testing.T) {
-		handlers := NewHandlers(nil, nil, nil, testLogger())
+		handlers := NewHandlers(nil, nil, nil, nil, testLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "/v1/register", nil)
 		rec := httptest.NewRecorder()
@@ -211,10 +267,10 @@ func TestHandlers_Activate(t *testing.T) {
 		inst, _ := domain.NewInstance(testUUID, testKey, "myapp", "1.0", "docker", "prod", "linux/amd64")
 		instanceRepo.instances[testUUID] = inst
 
-		instanceSvc := app.NewInstanceService(instanceRepo)
+		instanceSvc := app.NewInstanceService(instanceRepo, nil)
 		snapshotSvc := app.NewSnapshotService(&mockSnapshotRepo{}, instanceRepo)
 		dashboardSvc := app.NewDashboardService(&mockDashboardReader{})
-		handlers := NewHandlers(instanceSvc, snapshotSvc, dashboardSvc, testLogger())
+		handlers := NewHandlers(instanceSvc, snapshotSvc, nil, dashboardSvc, testLogger())
 
 		req := httptest.NewRequest(http.MethodPost, "/v1/activate", nil)
 		req.Header.Set("X-Instance-ID", testUUID)
@@ -241,10 +297,10 @@ func TestHandlers_AdminStats(t *testing.T) {
 		},
 	}
 
-	instanceSvc := app.NewInstanceService(newMockInstanceRepo())
+	instanceSvc := app.NewInstanceService(newMockInstanceRepo(), nil)
 	snapshotSvc := app.NewSnapshotService(&mockSnapshotRepo{}, newMockInstanceRepo())
 	dashboardSvc := app.NewDashboardService(dashboardReader)
-	handlers := NewHandlers(instanceSvc, snapshotSvc, dashboardSvc, testLogger())
+	handlers := NewHandlers(instanceSvc, snapshotSvc, nil, dashboardSvc, testLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/stats", nil)
 	rec := httptest.NewRecorder()
@@ -276,10 +332,10 @@ func TestHandlers_AdminInstances(t *testing.T) {
 		},
 	}
 
-	instanceSvc := app.NewInstanceService(newMockInstanceRepo())
+	instanceSvc := app.NewInstanceService(newMockInstanceRepo(), nil)
 	snapshotSvc := app.NewSnapshotService(&mockSnapshotRepo{}, newMockInstanceRepo())
 	dashboardSvc := app.NewDashboardService(dashboardReader)
-	handlers := NewHandlers(instanceSvc, snapshotSvc, dashboardSvc, testLogger())
+	handlers := NewHandlers(instanceSvc, snapshotSvc, nil, dashboardSvc, testLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/instances", nil)
 	rec := httptest.NewRecorder()

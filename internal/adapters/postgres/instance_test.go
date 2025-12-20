@@ -33,7 +33,7 @@ func TestInstanceRepository_Save(t *testing.T) {
 
 		mock.ExpectExec("INSERT INTO instances").
 			WithArgs(
-				testUUID, testKey, "myapp", "1.0", "docker", "prod", "linux/amd64",
+				testUUID, testKey, sqlmock.AnyArg(), "myapp", "1.0", "docker", "prod", "linux/amd64",
 				string(domain.StatusPending), sqlmock.AnyArg(),
 			).
 			WillReturnResult(sqlmock.NewResult(1, 1))
@@ -83,11 +83,11 @@ func TestInstanceRepository_FindByID(t *testing.T) {
 		now := time.Now().UTC()
 
 		rows := sqlmock.NewRows([]string{
-			"instance_id", "public_key", "app_name", "app_version",
+			"instance_id", "public_key", "application_id", "app_name", "app_version",
 			"deployment_mode", "environment", "os_arch", "status",
 			"last_seen_at", "created_at",
 		}).AddRow(
-			testUUID, testKey, "myapp", "1.0",
+			testUUID, testKey, nil, "myapp", "1.0",
 			"docker", "prod", "linux/amd64", "active",
 			now, now,
 		)

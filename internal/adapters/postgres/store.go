@@ -47,6 +47,11 @@ func (s *Store) SnapshotRepository() *SnapshotRepository {
 	return NewSnapshotRepository(s.db)
 }
 
+// ApplicationRepository returns an ApplicationRepository backed by this store.
+func (s *Store) ApplicationRepository() *ApplicationRepository {
+	return NewApplicationRepository(s.db)
+}
+
 // DashboardReader returns a DashboardReader backed by this store.
 func (s *Store) DashboardReader() *DashboardReader {
 	return NewDashboardReader(s.db)

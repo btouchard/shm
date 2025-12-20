@@ -23,17 +23,27 @@ type RegisterInstanceInput struct {
 
 // InstanceService handles instance-related use cases.
 type InstanceService struct {
-	repo ports.InstanceRepository
+	repo    ports.InstanceRepository
+	appSvc  *ApplicationService
 }
 
 // NewInstanceService creates a new InstanceService.
-func NewInstanceService(repo ports.InstanceRepository) *InstanceService {
-	return &InstanceService{repo: repo}
+func NewInstanceService(repo ports.InstanceRepository, appSvc *ApplicationService) *InstanceService {
+	return &InstanceService{
+		repo:   repo,
+		appSvc: appSvc,
+	}
 }
 
 // Register registers a new instance or updates an existing one.
 // This is an unauthenticated endpoint - instances self-register with their public key.
 func (s *InstanceService) Register(ctx context.Context, input RegisterInstanceInput) error {
+	// Auto-create or get the application
+	app, err := s.appSvc.CreateOrGet(ctx, input.AppName)
+	if err != nil {
+		return fmt.Errorf("register instance: %w", err)
+	}
+
 	// Create and validate the domain entity
 	instance, err := domain.NewInstance(
 		input.InstanceID,
@@ -48,10 +58,14 @@ func (s *InstanceService) Register(ctx context.Context, input RegisterInstanceIn
 		return fmt.Errorf("register instance: %w", err)
 	}
 
+	// Link instance to application
+	instance.ApplicationID = app.ID
+
 	// Check if instance already exists
 	existing, err := s.repo.FindByID(ctx, instance.ID)
 	if err == nil && existing != nil {
 		// Instance exists - update metadata but preserve status
+		existing.ApplicationID = app.ID
 		existing.AppName = instance.AppName
 		existing.AppVersion = instance.AppVersion
 		existing.DeploymentMode = instance.DeploymentMode

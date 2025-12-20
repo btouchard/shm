@@ -91,7 +91,8 @@ func (pk PublicKey) String() string {
 type Instance struct {
 	ID             InstanceID
 	PublicKey      PublicKey
-	AppName        string
+	ApplicationID  ApplicationID // Foreign key to applications table
+	AppName        string        // Denormalized for compatibility
 	AppVersion     string
 	DeploymentMode string
 	Environment    string

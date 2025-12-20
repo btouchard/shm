@@ -24,10 +24,11 @@ func NewInstanceRepository(db *sql.DB) *InstanceRepository {
 // Save persists an instance (insert or update).
 func (r *InstanceRepository) Save(ctx context.Context, instance *domain.Instance) error {
 	query := `
-		INSERT INTO instances (instance_id, public_key, app_name, app_version, deployment_mode, environment, os_arch, status, last_seen_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO instances (instance_id, public_key, application_id, app_name, app_version, deployment_mode, environment, os_arch, status, last_seen_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (instance_id) DO UPDATE
-		SET app_name = EXCLUDED.app_name,
+		SET application_id = EXCLUDED.application_id,
+			app_name = EXCLUDED.app_name,
 			app_version = EXCLUDED.app_version,
 			deployment_mode = EXCLUDED.deployment_mode,
 			environment = EXCLUDED.environment,
@@ -35,9 +36,17 @@ func (r *InstanceRepository) Save(ctx context.Context, instance *domain.Instance
 			status = EXCLUDED.status,
 			last_seen_at = EXCLUDED.last_seen_at
 	`
+
+	var applicationID *string
+	if instance.ApplicationID != "" {
+		appID := instance.ApplicationID.String()
+		applicationID = &appID
+	}
+
 	_, err := r.db.ExecContext(ctx, query,
 		instance.ID.String(),
 		instance.PublicKey.String(),
+		applicationID,
 		instance.AppName,
 		instance.AppVersion,
 		instance.DeploymentMode,
@@ -55,7 +64,7 @@ func (r *InstanceRepository) Save(ctx context.Context, instance *domain.Instance
 // FindByID retrieves an instance by its ID.
 func (r *InstanceRepository) FindByID(ctx context.Context, id domain.InstanceID) (*domain.Instance, error) {
 	query := `
-		SELECT instance_id, public_key, app_name, app_version, deployment_mode, environment, os_arch, status, last_seen_at, created_at
+		SELECT instance_id, public_key, application_id, app_name, app_version, deployment_mode, environment, os_arch, status, last_seen_at, created_at
 		FROM instances
 		WHERE instance_id = $1
 	`
@@ -63,9 +72,12 @@ func (r *InstanceRepository) FindByID(ctx context.Context, id domain.InstanceID)
 
 	var inst domain.Instance
 	var instanceID, publicKey, status string
+	var applicationID sql.NullString
+
 	err := row.Scan(
 		&instanceID,
 		&publicKey,
+		&applicationID,
 		&inst.AppName,
 		&inst.AppVersion,
 		&inst.DeploymentMode,
@@ -86,6 +98,10 @@ func (r *InstanceRepository) FindByID(ctx context.Context, id domain.InstanceID)
 	inst.ID = domain.InstanceID(instanceID)
 	inst.PublicKey = domain.PublicKey(publicKey)
 	inst.Status = domain.InstanceStatus(status)
+
+	if applicationID.Valid {
+		inst.ApplicationID = domain.ApplicationID(applicationID.String)
+	}
 
 	return &inst, nil
 }

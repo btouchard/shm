@@ -15,16 +15,18 @@ import (
 
 // Handlers holds HTTP handlers and their dependencies.
 type Handlers struct {
-	instances *app.InstanceService
-	snapshots *app.SnapshotService
-	dashboard *app.DashboardService
-	logger    *slog.Logger
+	instances    *app.InstanceService
+	snapshots    *app.SnapshotService
+	applications *app.ApplicationService
+	dashboard    *app.DashboardService
+	logger       *slog.Logger
 }
 
 // NewHandlers creates a new Handlers with the given services.
 func NewHandlers(
 	instances *app.InstanceService,
 	snapshots *app.SnapshotService,
+	applications *app.ApplicationService,
 	dashboard *app.DashboardService,
 	logger *slog.Logger,
 ) *Handlers {
@@ -32,10 +34,11 @@ func NewHandlers(
 		logger = slog.Default()
 	}
 	return &Handlers{
-		instances: instances,
-		snapshots: snapshots,
-		dashboard: dashboard,
-		logger:    logger,
+		instances:    instances,
+		snapshots:    snapshots,
+		applications: applications,
+		dashboard:    dashboard,
+		logger:       logger,
 	}
 }
 
@@ -196,16 +199,28 @@ func (h *Handlers) AdminInstances(w http.ResponseWriter, r *http.Request) {
 	// Convert to JSON-friendly format
 	response := make([]map[string]any, 0, len(instances))
 	for _, inst := range instances {
-		response = append(response, map[string]any{
+		item := map[string]any{
 			"instance_id":     inst.ID.String(),
 			"app_name":        inst.AppName,
+			"app_slug":        inst.AppSlug,
 			"app_version":     inst.AppVersion,
 			"environment":     inst.Environment,
 			"status":          string(inst.Status),
 			"last_seen_at":    inst.LastSeenAt,
 			"deployment_mode": inst.DeploymentMode,
 			"metrics":         inst.Metrics,
-		})
+		}
+
+		// Add application metadata if available
+		if inst.GitHubURL != "" {
+			item["github_url"] = inst.GitHubURL
+			item["github_stars"] = inst.GitHubStars
+		}
+		if inst.LogoURL != "" {
+			item["logo_url"] = inst.LogoURL
+		}
+
+		response = append(response, item)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -245,4 +260,164 @@ func (h *Handlers) AdminMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
+}
+
+// UpdateApplicationRequest is the JSON payload for updating an application.
+type UpdateApplicationRequest struct {
+	GitHubURL string `json:"github_url"`
+	LogoURL   string `json:"logo_url"`
+}
+
+// AdminListApplications handles listing all applications.
+func (h *Handlers) AdminListApplications(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	apps, err := h.applications.List(r.Context(), 100)
+	if err != nil {
+		h.logger.Error("failed to list applications", "error", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Convert to JSON-friendly format
+	response := make([]map[string]any, 0, len(apps))
+	for _, application := range apps {
+		item := map[string]any{
+			"id":         application.ID.String(),
+			"slug":       application.Slug.String(),
+			"name":       application.Name,
+			"stars":      application.Stars,
+			"logo_url":   application.LogoURL,
+			"created_at": application.CreatedAt,
+			"updated_at": application.UpdatedAt,
+		}
+
+		if application.GitHubURL != "" {
+			item["github_url"] = application.GitHubURL.String()
+		}
+
+		if application.StarsUpdatedAt != nil {
+			item["stars_updated_at"] = application.StarsUpdatedAt
+		}
+
+		response = append(response, item)
+	}
+
+	h.logger.Info("applications listed", "count", len(apps))
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// AdminGetApplication handles getting a single application by slug.
+func (h *Handlers) AdminGetApplication(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	slug := r.URL.Path[len("/api/v1/admin/applications/"):]
+	if slug == "" {
+		http.Error(w, "Application slug required", http.StatusBadRequest)
+		return
+	}
+
+	application, err := h.applications.GetBySlug(r.Context(), slug)
+	if err != nil {
+		h.logger.Error("failed to get application", "slug", slug, "error", err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	response := map[string]any{
+		"id":         application.ID.String(),
+		"slug":       application.Slug.String(),
+		"name":       application.Name,
+		"stars":      application.Stars,
+		"logo_url":   application.LogoURL,
+		"created_at": application.CreatedAt,
+		"updated_at": application.UpdatedAt,
+	}
+
+	if application.GitHubURL != "" {
+		response["github_url"] = application.GitHubURL.String()
+	}
+
+	if application.StarsUpdatedAt != nil {
+		response["stars_updated_at"] = application.StarsUpdatedAt
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// AdminUpdateApplication handles updating an application's metadata.
+func (h *Handlers) AdminUpdateApplication(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	slug := r.URL.Path[len("/api/v1/admin/applications/"):]
+	if slug == "" {
+		http.Error(w, "Application slug required", http.StatusBadRequest)
+		return
+	}
+
+	var req UpdateApplicationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Warn("invalid JSON", "error", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	err := h.applications.Update(r.Context(), app.UpdateApplicationInput{
+		Slug:      slug,
+		GitHubURL: req.GitHubURL,
+		LogoURL:   req.LogoURL,
+	})
+
+	if err != nil {
+		h.logger.Error("failed to update application", "slug", slug, "error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	h.logger.Info("application updated", "slug", slug)
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "Application updated"})
+}
+
+// AdminRefreshStars handles manual GitHub stars refresh for a specific application.
+func (h *Handlers) AdminRefreshStars(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract slug from path /api/v1/admin/applications/{slug}/refresh-stars
+	path := r.URL.Path
+	slug := path[len("/api/v1/admin/applications/"):]
+	if idx := len(slug) - len("/refresh-stars"); idx > 0 {
+		slug = slug[:idx]
+	}
+
+	if slug == "" {
+		http.Error(w, "Application slug required", http.StatusBadRequest)
+		return
+	}
+
+	err := h.applications.RefreshStars(r.Context(), slug)
+	if err != nil {
+		h.logger.Error("failed to refresh stars", "slug", slug, "error", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.logger.Info("stars refreshed", "slug", slug)
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "Stars refreshed"})
 }
