@@ -97,6 +97,20 @@ Register a new instance with the server. This is the only unauthenticated endpoi
 | 405 | Method not allowed (use POST) |
 | 500 | Server error |
 
+**curl Example:**
+
+```bash
+curl -X POST https://shm.example.com/v1/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instance_id": "550e8400-e29b-41d4-a716-446655440000",
+    "public_key": "a1b2c3d4e5f6...",
+    "app_name": "my-app",
+    "app_version": "1.0.0",
+    "environment": "production"
+  }'
+```
+
 ---
 
 ### POST /v1/activate
@@ -305,12 +319,12 @@ All errors return a plain text message with an appropriate HTTP status code:
 
 | Status | Message | Cause |
 |--------|---------|-------|
-| 400 | `JSON invalide` | Malformed request body |
-| 401 | `Headers d'authentification manquants` | Missing X-Instance-ID or X-Signature |
-| 403 | `Non autorisé` | Instance not found |
-| 403 | `Signature invalide` | Signature verification failed |
+| 400 | `Invalid JSON` | Malformed request body |
+| 401 | `Missing authentication headers` | Missing X-Instance-ID or X-Signature |
+| 403 | `Unauthorized` | Instance not found |
+| 403 | `Invalid signature` | Signature verification failed |
 | 405 | `Method not allowed` | Wrong HTTP method |
-| 500 | `Erreur serveur` | Internal server error |
+| 500 | `Server error` | Internal server error |
 
 ---
 
@@ -402,6 +416,12 @@ List all applications tracked by the server.
 | 200 | Success |
 | 500 | Server error |
 
+**curl Example:**
+
+```bash
+curl https://shm.example.com/api/v1/admin/applications
+```
+
 ---
 
 ### GET /api/v1/admin/applications/{slug}
@@ -431,6 +451,12 @@ Get details for a specific application by slug.
 | 200 | Success |
 | 404 | Application not found |
 | 500 | Server error |
+
+**curl Example:**
+
+```bash
+curl https://shm.example.com/api/v1/admin/applications/my-app
+```
 
 ---
 
@@ -470,6 +496,17 @@ Update an application's metadata.
 | 404 | Application not found |
 | 500 | Server error |
 
+**curl Example:**
+
+```bash
+curl -X PUT https://shm.example.com/api/v1/admin/applications/my-app \
+  -H "Content-Type: application/json" \
+  -d '{
+    "github_url": "https://github.com/owner/repo",
+    "logo_url": "https://example.com/logo.png"
+  }'
+```
+
 ---
 
 ### POST /api/v1/admin/applications/{slug}/refresh-stars
@@ -494,6 +531,12 @@ Manually trigger a GitHub stars refresh for a specific application.
 | 400 | Application has no GitHub URL configured |
 | 404 | Application not found |
 | 500 | Server error or GitHub API error |
+
+**curl Example:**
+
+```bash
+curl -X POST https://shm.example.com/api/v1/admin/applications/my-app/refresh-stars
+```
 
 ---
 
@@ -664,171 +707,116 @@ This ensures badges remain functional even when data is temporarily unavailable.
 
 ---
 
-## Admin API
+## Data Retention & Instance Lifecycle
 
-The following endpoints are intended for administrative use and are not used by instances.
+### Instance States
 
-### GET /api/v1/admin/applications
+Instances go through the following lifecycle:
 
-List all applications tracked by the server.
+| State | Description |
+|-------|-------------|
+| `registered` | Instance has sent its public key but not yet activated |
+| `active` | Instance has been activated and is sending snapshots |
+| `inactive` | Instance hasn't sent a snapshot in >30 days |
 
-**Response:**
+### Active Instance Definition
 
-```json
-[
-  {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "slug": "my-app",
-    "name": "My Awesome App",
-    "github_url": "https://github.com/owner/repo",
-    "github_stars": 1234,
-    "github_stars_updated_at": "2024-01-15T10:30:00Z",
-    "logo_url": "https://example.com/logo.png",
-    "created_at": "2024-01-01T00:00:00Z",
-    "updated_at": "2024-01-15T10:30:00Z"
-  }
-]
+An instance is considered **active** if its `last_seen_at` timestamp is within the last **30 days**. This affects:
+- Badge counts (only active instances are counted)
+- Metric aggregations (only active instances contribute)
+- Dashboard statistics
+
+### Snapshot Storage
+
+- Each snapshot is stored as a separate row in the database
+- Metrics are stored as JSONB for flexible schema
+- No automatic cleanup is performed on old snapshots
+
+### Automatic System Metrics
+
+The SDK automatically collects and sends these system metrics alongside your custom metrics:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `cpu_percent` | float | Current CPU usage percentage |
+| `memory_mb` | int | Memory usage in megabytes |
+| `os` | string | Operating system (linux, darwin, windows) |
+| `arch` | string | CPU architecture (amd64, arm64) |
+| `go_version` | string | Go runtime version (Go SDK only) |
+| `node_version` | string | Node.js version (Node.js SDK only) |
+
+### Data Cleanup
+
+To clean up old data, you can run SQL queries directly:
+
+```sql
+-- Delete snapshots older than 90 days
+DELETE FROM snapshots WHERE created_at < NOW() - INTERVAL '90 days';
+
+-- Delete inactive instances (no snapshot in 90 days)
+DELETE FROM instances WHERE last_seen_at < NOW() - INTERVAL '90 days';
 ```
 
-**Status Codes:**
-
-| Code | Description |
-|------|-------------|
-| 200 | Success |
-| 500 | Server error |
+> **Note:** Always backup your database before running cleanup queries.
 
 ---
 
-### GET /api/v1/admin/applications/{slug}
+## SDKs
 
-Get details for a specific application by slug.
+Official SDKs are available for easy integration. They handle keypair generation, storage, registration, and periodic snapshot sending automatically.
 
-**Response:**
-
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "slug": "my-app",
-  "name": "My Awesome App",
-  "github_url": "https://github.com/owner/repo",
-  "github_stars": 1234,
-  "github_stars_updated_at": "2024-01-15T10:30:00Z",
-  "logo_url": "https://example.com/logo.png",
-  "created_at": "2024-01-01T00:00:00Z",
-  "updated_at": "2024-01-15T10:30:00Z"
-}
-```
-
-**Status Codes:**
-
-| Code | Description |
-|------|-------------|
-| 200 | Success |
-| 404 | Application not found |
-| 500 | Server error |
-
----
-
-### PUT /api/v1/admin/applications/{slug}
-
-Update an application's metadata.
-
-**Request Body:**
-
-```json
-{
-  "github_url": "https://github.com/owner/repo",
-  "logo_url": "https://example.com/logo.png"
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `github_url` | string | No | GitHub repository URL (must be https://github.com/owner/repo format) |
-| `logo_url` | string | No | Custom logo URL |
-
-**Response:**
-
-```json
-{
-  "status": "ok",
-  "message": "Application updated successfully"
-}
-```
-
-**Status Codes:**
-
-| Code | Description |
-|------|-------------|
-| 200 | Application updated |
-| 400 | Invalid request body or GitHub URL |
-| 404 | Application not found |
-| 500 | Server error |
-
----
-
-### POST /api/v1/admin/applications/{slug}/refresh-stars
-
-Manually trigger a GitHub stars refresh for a specific application.
-
-**Response:**
-
-```json
-{
-  "status": "ok",
-  "stars": 1234,
-  "message": "Stars refreshed successfully"
-}
-```
-
-**Status Codes:**
-
-| Code | Description |
-|------|-------------|
-| 200 | Stars refreshed successfully |
-| 400 | Application has no GitHub URL configured |
-| 404 | Application not found |
-| 500 | Server error or GitHub API error |
-
----
-
-## GitHub Stars
-
-SHM automatically fetches and displays GitHub repository stars for applications with a configured `github_url`.
-
-### Automatic Refresh
-
-- Stars are refreshed hourly via a background scheduler
-- Only applications with a GitHub URL and stale data (>1 hour old) are refreshed
-- Uses 1-hour caching to respect GitHub API rate limits
-
-### Rate Limits
-
-| Authentication | Requests per Hour |
-|----------------|-------------------|
-| No token (unauthenticated) | 60 |
-| With `GITHUB_TOKEN` | 5000 |
-
-**Recommendation:** Set the `GITHUB_TOKEN` environment variable with a GitHub Personal Access Token to avoid rate limit issues.
+### Go SDK
 
 ```bash
-export GITHUB_TOKEN="ghp_your_token_here"
+go get github.com/btouchard/shm/sdk
 ```
 
----
-
-## SDK
-
-An official Go SDK is available at [`sdk/golang/`](../sdk/golang/). It handles keypair generation, storage, registration, and periodic snapshot sending automatically.
-
 ```go
-import "github.com/btouchard/shm/sdk/golang"
+import "github.com/btouchard/shm/sdk"
 
-tracker := shm.NewTracker("https://shm.example.com", "my-app", "1.0.0")
-tracker.Start(func() map[string]any {
-    return map[string]any{
+telemetry, _ := sdk.New(sdk.Config{
+    ServerURL:   "https://shm.example.com",
+    AppName:     "my-app",
+    AppVersion:  "1.0.0",
+    Environment: "production",
+    Enabled:     true,
+})
+
+telemetry.SetProvider(func() map[string]interface{} {
+    return map[string]interface{}{
         "users": getUserCount(),
         "documents": getDocCount(),
     }
 })
+
+go telemetry.Start(context.Background())
 ```
+
+### Node.js / TypeScript SDK
+
+[![npm version](https://img.shields.io/npm/v/@btouchard/shm-sdk?style=flat-square)](https://www.npmjs.com/package/@btouchard/shm-sdk)
+
+```bash
+npm install @btouchard/shm-sdk
+```
+
+```typescript
+import { SHMClient } from '@btouchard/shm-sdk';
+
+const telemetry = new SHMClient({
+    serverUrl: 'https://shm.example.com',
+    appName: 'my-app',
+    appVersion: '1.0.0',
+    environment: 'production',
+    enabled: true,
+});
+
+telemetry.setProvider(() => ({
+    users: getUserCount(),
+    documents: getDocCount(),
+}));
+
+telemetry.start();
+```
+
+> **Note:** Requires Node.js >= 22 LTS. Zero external dependencies.

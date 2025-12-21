@@ -192,17 +192,35 @@ Access the dashboard at **http://localhost:8080**.
 
 ### Environment Variables
 
+#### Core Settings
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SHM_DB_DSN` | `postgres://user:password@localhost:5432/metrics?sslmode=disable` | PostgreSQL connection string |
+| `SHM_DB_DSN` | (required) | PostgreSQL connection string |
 | `PORT` | `8080` | HTTP server port |
-| `GITHUB_TOKEN` | - | Optional GitHub Personal Access Token for higher API rate limits (5000 req/h instead of 60 req/h) |
+| `GITHUB_TOKEN` | - | GitHub Personal Access Token for higher API rate limits (5000 req/h instead of 60 req/h) |
 
 #### Rate Limiting
 
 Rate limiting is enabled by default to protect against abuse.
 
-See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for full rate limiting configuration documentation.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SHM_RATELIMIT_ENABLED` | `true` | Enable/disable rate limiting |
+| `SHM_RATELIMIT_CLEANUP_INTERVAL` | `10m` | Interval for cleaning up expired limiters |
+| `SHM_RATELIMIT_REGISTER_REQUESTS` | `5` | Max requests per period for `/v1/register` and `/v1/activate` |
+| `SHM_RATELIMIT_REGISTER_PERIOD` | `1m` | Time window for register endpoints |
+| `SHM_RATELIMIT_REGISTER_BURST` | `2` | Burst allowance for register endpoints |
+| `SHM_RATELIMIT_SNAPSHOT_REQUESTS` | `1` | Max requests per period for `/v1/snapshot` (per instance) |
+| `SHM_RATELIMIT_SNAPSHOT_PERIOD` | `1m` | Time window for snapshot endpoint |
+| `SHM_RATELIMIT_SNAPSHOT_BURST` | `2` | Burst allowance for snapshot endpoint |
+| `SHM_RATELIMIT_ADMIN_REQUESTS` | `30` | Max requests per period for `/api/v1/admin/*` |
+| `SHM_RATELIMIT_ADMIN_PERIOD` | `1m` | Time window for admin endpoints |
+| `SHM_RATELIMIT_ADMIN_BURST` | `10` | Burst allowance for admin endpoints |
+| `SHM_RATELIMIT_BRUTEFORCE_THRESHOLD` | `5` | Failed auth attempts before IP ban |
+| `SHM_RATELIMIT_BRUTEFORCE_BAN` | `15m` | Duration of IP ban after brute-force detection |
+
+See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for deployment examples and security configuration.
 
 ---
 
@@ -261,6 +279,8 @@ func main() {
 ## 📦 SDK Integration (Node.js / TypeScript)
 
 Embed the telemetry client into your Node.js application.
+
+[![npm version](https://img.shields.io/npm/v/@btouchard/shm-sdk?style=flat-square)](https://www.npmjs.com/package/@btouchard/shm-sdk)
 
 ```bash
 npm install @btouchard/shm-sdk

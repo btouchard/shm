@@ -65,6 +65,7 @@ volumes:
 ```bash
 mkdir -p migrations
 curl -sL https://raw.githubusercontent.com/btouchard/shm/main/migrations/001_init.sql -o migrations/001_init.sql
+curl -sL https://raw.githubusercontent.com/btouchard/shm/main/migrations/002_applications.sql -o migrations/002_applications.sql
 ```
 
 ### 3. Start the services
@@ -97,7 +98,7 @@ Rate limiting is enabled by default to protect against abuse.
 | `SHM_RATELIMIT_BRUTEFORCE_THRESHOLD` | `5` | Failed auth attempts before IP ban |
 | `SHM_RATELIMIT_BRUTEFORCE_BAN` | `15m` | Duration of IP ban after brute-force detection |
 
-See [docs/API.md](./docs/API.md) for full API and rate limiting documentation.
+See [API.md](./API.md) for full API and rate limiting documentation.
 
 ---
 
@@ -403,8 +404,9 @@ caddy hash-password --plaintext 'your-secure-password'
 |----------|---------|-------------|
 | `SHM_DB_DSN` | (required) | PostgreSQL connection string |
 | `PORT` | `8080` | HTTP server port |
+| `GITHUB_TOKEN` | - | GitHub Personal Access Token for higher API rate limits |
 
-For rate limiting configuration, see [README.md](../README.md#rate-limiting).
+For the full list of environment variables (including rate limiting), see [README.md](../README.md#environment-variables).
 
 ---
 
