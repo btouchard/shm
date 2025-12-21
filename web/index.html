@@ -26,9 +26,10 @@
         }
     </script>
 
-    <!-- External Dependencies -->
+    <!-- External Dependencies (with SRI where possible) -->
+    <!-- Phosphor Icons: SRI omitted due to dynamic resource loading -->
     <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -90,8 +91,20 @@
                 :class="isSelected(app.name) ? 'bg-primary-500/10 text-primary-400 border border-primary-500/20' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'"
             >
                 <div class="flex items-center gap-2 min-w-0 flex-1">
-                    <div class="w-6 h-6 rounded bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0">
-                        <span class="text-xs font-bold text-indigo-400" x-text="app.name.charAt(0).toUpperCase()"></span>
+                    <div class="w-6 h-6 rounded bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        <img
+                            x-show="app.logo_url"
+                            :src="app.logo_url ? app.logo_url + '?_r=' + $store.dashboard.refreshKey : ''"
+                            :alt="app.name"
+                            class="w-full h-full object-contain p-0.5"
+                            @error="$el.style.display='none'; $el.nextElementSibling.style.display='block'"
+                            @load="$el.style.display='block'; $el.nextElementSibling.style.display='none'"
+                        >
+                        <span
+                            class="text-xs font-bold text-indigo-400"
+                            :style="app.logo_url ? 'display:none' : ''"
+                            x-text="app.name.charAt(0).toUpperCase()"
+                        ></span>
                     </div>
                     <span class="text-sm font-medium truncate" x-text="app.name"></span>
                 </div>
@@ -117,8 +130,8 @@
                 </span>
                 <span x-text="$store.dashboard.stats.active_instances + ' active'"></span>
             </div>
-            <button @click="refresh()" class="p-1 text-gray-500 hover:text-white hover:bg-gray-800 rounded transition-colors" :disabled="$store.dashboard.loading">
-                <i class="ph-bold ph-arrows-clockwise text-sm" :class="{ 'animate-spin': $store.dashboard.loading }"></i>
+            <button @click="refresh()" class="p-1 text-gray-500 hover:text-white hover:bg-gray-800 rounded transition-colors" :disabled="$store.dashboard.loading" aria-label="Refresh data">
+                <i class="ph-bold ph-arrows-clockwise text-sm" :class="{ 'animate-spin': $store.dashboard.loading }" aria-hidden="true"></i>
             </button>
         </div>
     </div>
@@ -158,8 +171,22 @@
                 <!-- App Header -->
                 <div class="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
                     <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center shadow-inner">
-                            <span class="text-lg font-bold text-indigo-400" x-text="appName.charAt(0).toUpperCase()"></span>
+                        <!-- Logo or Initial (with fallback) -->
+                        <div class="w-10 h-10 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center shadow-inner overflow-hidden"
+                             x-data="{ get logoUrl() { return $store.dashboard.applications.find(a => a.slug === group.appSlug)?.logo_url } }">
+                            <img
+                                x-show="logoUrl"
+                                :src="logoUrl ? logoUrl + '?_r=' + $store.dashboard.refreshKey : ''"
+                                :alt="appName"
+                                class="w-full h-full object-contain p-1"
+                                @error="$el.style.display='none'; $el.nextElementSibling.style.display='block'"
+                                @load="$el.style.display='block'; $el.nextElementSibling.style.display='none'"
+                            >
+                            <span
+                                class="text-lg font-bold text-indigo-400"
+                                x-show="!logoUrl"
+                                x-text="appName.charAt(0).toUpperCase()"
+                            ></span>
                         </div>
                         <div>
                             <div class="flex items-center gap-2">
@@ -178,6 +205,15 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Edit Button -->
+                    <button
+                        @click.stop="openEditModal(group.appSlug)"
+                        class="p-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors border border-gray-700"
+                        title="Edit application settings"
+                        aria-label="Edit application settings"
+                    >
+                        <i class="ph-bold ph-gear text-lg" aria-hidden="true"></i>
+                    </button>
                 </div>
 
                 <!-- Metrics Cards -->
@@ -248,8 +284,8 @@
                                     x-text="period"
                                 ></button>
                             </template>
-                            <button @click="closeChart(appName)" class="ml-2 p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded transition-colors">
-                                <i class="ph-bold ph-x text-sm"></i>
+                            <button @click="closeChart(appName)" class="ml-2 p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded transition-colors" aria-label="Close chart">
+                                <i class="ph-bold ph-x text-sm" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
@@ -351,13 +387,12 @@
 </main>
 
 <!-- ===== INSTANCE DRAWER ===== -->
-<template x-teleport="body">
-    <div x-data="drawer" x-show="isOpen" x-cloak class="fixed inset-0 z-50 flex justify-end" @keydown.escape.window="close()">
-        <div @click="close()" class="absolute inset-0 bg-black/70 backdrop-blur-[2px] transition-opacity" x-show="isOpen" x-transition.opacity></div>
+<div x-data="drawer" x-show="$store.dashboard.selectedInstance !== null" x-cloak class="fixed inset-0 z-50 flex justify-end" @keydown.escape.window="close()" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+        <div @click="close()" class="absolute inset-0 bg-black/70 backdrop-blur-[2px] transition-opacity" x-show="$store.dashboard.selectedInstance !== null" x-transition.opacity aria-hidden="true"></div>
 
         <div
             class="relative w-full max-w-lg bg-gray-950 border-l border-gray-800 h-full shadow-2xl flex flex-col"
-            x-show="isOpen"
+            x-show="$store.dashboard.selectedInstance !== null"
             x-transition:enter="transition ease-out duration-300"
             x-transition:enter-start="translate-x-full"
             x-transition:enter-end="translate-x-0"
@@ -371,7 +406,7 @@
                     <div class="px-6 py-5 border-b border-gray-800 bg-gray-900 flex justify-between items-start">
                         <div>
                             <div class="flex items-center gap-2 mb-1">
-                                <h3 class="text-xl font-bold text-white font-mono tracking-tight" x-text="instance.instance_id"></h3>
+                                <h3 id="drawer-title" class="text-xl font-bold text-white font-mono tracking-tight" x-text="instance.instance_id"></h3>
                                 <span
                                     class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border"
                                     :class="instance.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'"
@@ -380,8 +415,8 @@
                             </div>
                             <p class="text-sm text-gray-400" x-text="`${instance.app_name} v${instance.app_version}`"></p>
                         </div>
-                        <button @click="close()" class="text-gray-500 hover:text-white bg-gray-800 hover:bg-gray-700 p-2 rounded-lg transition">
-                            <i class="ph-bold ph-x text-lg"></i>
+                        <button @click="close()" class="text-gray-500 hover:text-white bg-gray-800 hover:bg-gray-700 p-2 rounded-lg transition" aria-label="Close drawer">
+                            <i class="ph-bold ph-x text-lg" aria-hidden="true"></i>
                         </button>
                     </div>
 
@@ -458,7 +493,148 @@
             </template>
         </div>
     </div>
-</template>
+</div>
+
+<!-- ===== APPLICATION EDIT MODAL ===== -->
+<div x-data="appEditModal" x-show="$store.dashboard.editingApp !== null" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" @keydown.escape.window="close()" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <!-- Backdrop -->
+        <div @click="close()" class="absolute inset-0 bg-black/70 backdrop-blur-[2px]" x-show="$store.dashboard.editingApp !== null" x-transition.opacity aria-hidden="true"></div>
+
+        <!-- Modal -->
+        <div
+            class="relative w-full max-w-md bg-gray-900 border border-gray-800 rounded-xl shadow-2xl"
+            x-show="$store.dashboard.editingApp !== null"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
+        >
+            <template x-if="$store.dashboard.editingApp">
+                <div>
+                    <!-- Header -->
+                    <div class="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+                        <div>
+                            <h3 id="modal-title" class="text-lg font-bold text-white">Edit Application</h3>
+                            <p class="text-sm text-gray-500" x-text="$store.dashboard.editingApp.name"></p>
+                        </div>
+                        <button @click="close()" class="p-2 text-gray-500 hover:text-white hover:bg-gray-800 rounded-lg transition-colors" aria-label="Close modal">
+                            <i class="ph-bold ph-x text-lg" aria-hidden="true"></i>
+                        </button>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="p-6 space-y-5">
+                        <!-- Error Message -->
+                        <template x-if="error">
+                            <div class="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400 flex items-center gap-2">
+                                <i class="ph-bold ph-warning-circle"></i>
+                                <span x-text="error"></span>
+                            </div>
+                        </template>
+
+                        <!-- Success Message -->
+                        <template x-if="success">
+                            <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-sm text-emerald-400 flex items-center gap-2">
+                                <i class="ph-bold ph-check-circle"></i>
+                                <span x-text="success"></span>
+                            </div>
+                        </template>
+
+                        <!-- GitHub URL Field -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                                <i class="ph-bold ph-github-logo mr-1"></i> GitHub Repository
+                            </label>
+                            <div class="flex gap-2">
+                                <input
+                                    type="url"
+                                    x-model="form.github_url"
+                                    placeholder="https://github.com/owner/repo"
+                                    class="flex-1 bg-gray-950 border rounded-lg px-4 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                                    :class="isValidGitHubUrl ? 'border-gray-800 focus:border-primary-500' : 'border-red-500/50'"
+                                >
+                                <button
+                                    @click="refreshStars()"
+                                    :disabled="refreshingStars || !form.github_url || !isValidGitHubUrl"
+                                    class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Refresh GitHub stars"
+                                    aria-label="Refresh GitHub stars"
+                                >
+                                    <i class="ph-bold ph-arrows-clockwise" :class="{ 'animate-spin': refreshingStars }" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <p class="mt-1.5 text-xs text-gray-600">Used to display GitHub stars badge</p>
+                            <template x-if="!isValidGitHubUrl">
+                                <p class="mt-1 text-xs text-red-400">Invalid GitHub URL format</p>
+                            </template>
+                        </div>
+
+                        <!-- Logo URL Field -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                                <i class="ph-bold ph-image mr-1" aria-hidden="true"></i> Logo URL
+                            </label>
+                            <input
+                                type="url"
+                                x-model="form.logo_url"
+                                placeholder="https://example.com/logo.png"
+                                class="w-full bg-gray-950 border rounded-lg px-4 py-2.5 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                                :class="isValidLogoUrl ? 'border-gray-800 focus:border-primary-500' : 'border-red-500/50'"
+                            >
+                            <p class="mt-1.5 text-xs text-gray-600">Custom logo image (SVG, PNG, or JPG) - HTTPS only</p>
+                            <template x-if="!isValidLogoUrl">
+                                <p class="mt-1 text-xs text-red-400">Invalid URL. Must be HTTPS with valid image extension or from allowed domain.</p>
+                            </template>
+                        </div>
+
+                        <!-- Logo Preview -->
+                        <template x-if="form.logo_url">
+                            <div class="flex items-center gap-3 p-3 bg-gray-950 border border-gray-800 rounded-lg">
+                                <img :src="form.logo_url" alt="Logo preview" class="w-10 h-10 object-contain rounded" @error="$el.style.display='none'">
+                                <span class="text-xs text-gray-500">Logo preview</span>
+                            </div>
+                        </template>
+
+                        <!-- Current Stats -->
+                        <div class="pt-3 border-t border-gray-800">
+                            <p class="text-xs text-gray-500 mb-2">Current Stats</p>
+                            <div class="flex items-center gap-4 text-sm">
+                                <div class="flex items-center gap-1.5 text-gray-400">
+                                    <i class="ph-fill ph-star text-yellow-500"></i>
+                                    <span x-text="$store.dashboard.editingApp.stars || 0"></span>
+                                    <span class="text-gray-600">stars</span>
+                                </div>
+                                <template x-if="$store.dashboard.editingApp.stars_updated_at">
+                                    <span class="text-xs text-gray-600" x-text="'Updated ' + new Date($store.dashboard.editingApp.stars_updated_at).toLocaleDateString()"></span>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="px-6 py-4 border-t border-gray-800 flex items-center justify-end gap-3">
+                        <button
+                            @click="close()"
+                            class="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            @click="save()"
+                            :disabled="saving || !hasChanges || !isFormValid"
+                            class="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                            <i x-show="saving" class="ph-bold ph-spinner animate-spin"></i>
+                            <span x-text="saving ? 'Saving...' : 'Save Changes'"></span>
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>
