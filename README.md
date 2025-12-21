@@ -238,12 +238,12 @@ go get github.com/btouchard/shm/sdk
 package main
 
 import (
-    "github.com/btouchard/shm/sdk"
+	shm "github.com/btouchard/shm/sdk/golang"
 )
 
 func main() {
     // 1. Configure the client
-    telemetry, err := sdk.New(sdk.Config{
+    telemetry, err := shm.New(shm.Config{
         ServerURL:      "https://metrics.your-domain.com",
         AppName:        "MyAwesomeApp",
         AppVersion:     "1.0.0",
