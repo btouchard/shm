@@ -45,9 +45,9 @@ func LoadRateLimitConfig() RateLimitConfig {
 			Burst:    getEnvInt("SHM_RATELIMIT_SNAPSHOT_BURST", 2),
 		},
 		Admin: RateLimitRouteConfig{
-			Requests: getEnvInt("SHM_RATELIMIT_ADMIN_REQUESTS", 30),
+			Requests: getEnvInt("SHM_RATELIMIT_ADMIN_REQUESTS", 60),
 			Period:   getEnvDuration("SHM_RATELIMIT_ADMIN_PERIOD", time.Minute),
-			Burst:    getEnvInt("SHM_RATELIMIT_ADMIN_BURST", 10),
+			Burst:    getEnvInt("SHM_RATELIMIT_ADMIN_BURST", 20),
 		},
 
 		BruteForceThreshold: getEnvInt("SHM_RATELIMIT_BRUTEFORCE_THRESHOLD", 5),

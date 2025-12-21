@@ -104,7 +104,7 @@ func (m *mockDashboardReader) GetStats(ctx context.Context) (ports.DashboardStat
 	return m.stats, nil
 }
 
-func (m *mockDashboardReader) ListInstances(ctx context.Context, limit int) ([]ports.InstanceSummary, error) {
+func (m *mockDashboardReader) ListInstances(ctx context.Context, offset, limit int, appName, search string) ([]ports.InstanceSummary, error) {
 	return m.instances, nil
 }
 

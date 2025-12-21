@@ -76,28 +76,28 @@
                 <i class="ph-bold ph-stack text-sm"></i>
                 <span class="text-sm font-medium">All Applications</span>
             </div>
-            <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-500 group-hover:bg-gray-700" x-text="rawInstances.length"></span>
+            <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-500 group-hover:bg-gray-700" x-text="stats.total_instances"></span>
         </button>
 
         <div class="border-t border-gray-800 my-2"></div>
 
-        <template x-for="(group, appName) in groupedInstances" :key="appName">
+        <template x-for="app in filteredApplications" :key="app.slug">
             <button
-                @click="selectApp(appName)"
+                @click="selectApp(app.name)"
                 class="w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center justify-between group"
-                :class="selectedApp === appName ? 'bg-primary-500/10 text-primary-400 border border-primary-500/20' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'"
+                :class="selectedApp === app.name ? 'bg-primary-500/10 text-primary-400 border border-primary-500/20' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'"
             >
                 <div class="flex items-center gap-2 min-w-0 flex-1">
                     <div class="w-6 h-6 rounded bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0">
-                        <span class="text-xs font-bold text-indigo-400" x-text="appName.charAt(0).toUpperCase()"></span>
+                        <span class="text-xs font-bold text-indigo-400" x-text="app.name.charAt(0).toUpperCase()"></span>
                     </div>
-                    <span class="text-sm font-medium truncate" x-text="appName"></span>
+                    <span class="text-sm font-medium truncate" x-text="app.name"></span>
                 </div>
-                <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-500 group-hover:bg-gray-700 flex-shrink-0" x-text="group.instances.length"></span>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-500 group-hover:bg-gray-700 flex-shrink-0" x-text="getAppTotalCount(app.name)"></span>
             </button>
         </template>
 
-        <template x-if="Object.keys(groupedInstances).length === 0 && !loading">
+        <template x-if="applications.length === 0 && !loading">
             <div class="text-center py-8 text-gray-600">
                 <i class="ph-duotone ph-ghost text-2xl mb-2"></i>
                 <p class="text-xs">No applications yet</p>
@@ -115,7 +115,7 @@
                 </span>
                 <span x-text="stats.active_instances + ' active'"></span>
             </div>
-            <button @click="fetchData" class="p-1 text-gray-500 hover:text-white hover:bg-gray-800 rounded transition-colors" :disabled="loading">
+            <button @click="fetchInitialData" class="p-1 text-gray-500 hover:text-white hover:bg-gray-800 rounded transition-colors" :disabled="loading">
                 <i class="ph-bold ph-arrows-clockwise text-sm" :class="{ 'animate-spin': loading }"></i>
             </button>
         </div>
@@ -128,14 +128,17 @@
         <div class="flex h-16 items-center justify-between">
             <div class="flex items-center gap-3">
                 <h1 class="text-xl font-bold text-white" x-text="selectedApp || 'All Applications'"></h1>
-                <span class="text-sm text-gray-500" x-text="`(${filteredInstances.length} instances)`"></span>
+                <span class="text-sm text-gray-500" x-text="`(${selectedApp ? getAppTotalCount(selectedApp) : stats.total_instances} instances)`"></span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="relative">
-                    <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+                <div class="relative flex items-center">
+                    <div class="absolute left-3 w-4 h-4 flex items-center justify-center text-gray-500">
+                        <i x-show="!searchingInstances" class="ph-bold ph-magnifying-glass text-sm"></i>
+                        <i x-show="searchingInstances" class="ph-bold ph-spinner animate-spin text-sm"></i>
+                    </div>
                     <input
                         type="text"
-                        x-model.debounce.300ms="instanceSearchQuery"
+                        x-model="instanceSearchQuery"
                         placeholder="Search instances..."
                         class="bg-gray-900 border border-gray-800 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 w-64"
                     >
@@ -157,9 +160,17 @@
                             <span class="text-lg font-bold text-indigo-400" x-text="appName.charAt(0).toUpperCase()"></span>
                         </div>
                         <div>
-                            <h2 class="text-xl font-bold text-white" x-text="appName"></h2>
+                            <div class="flex items-center gap-2">
+                                <h2 class="text-xl font-bold text-white" x-text="appName"></h2>
+                                <template x-if="group.githubUrl && group.githubStars > 0">
+                                    <a :href="group.githubUrl" target="_blank" class="flex items-center gap-1 px-2 py-0.5 rounded bg-gray-800 border border-gray-700 hover:border-gray-600 transition-colors text-xs text-gray-400 hover:text-gray-300">
+                                        <i class="ph-fill ph-star text-yellow-500"></i>
+                                        <span class="font-mono" x-text="formatNumber(group.githubStars || 0)"></span>
+                                    </a>
+                                </template>
+                            </div>
                             <div class="text-xs text-gray-500 flex gap-2">
-                                <span x-text="`${group.instances.length} instances`"></span>
+                                <span x-text="`${getAppTotalCount(appName)} instances`"></span>
                                 <span>&bull;</span>
                                 <span x-text="`Updated ${timeAgo(group.lastSeenGlobal)}`"></span>
                             </div>
@@ -453,6 +464,7 @@ document.addEventListener('alpine:init', () => {
         // State
         loading: false,
         stats: { total_instances: 0, active_instances: 0 },
+        applications: [],  // From applications table
         rawInstances: [],
         groupedInstances: {},
         displayedGroups: {},
@@ -473,19 +485,32 @@ document.addEventListener('alpine:init', () => {
 
         // Constants
         periods: ['24h', '7d', '30d', '3m', '1y', 'all'],
-        instancesPerPage: 25,
+        instancesPerPage: 25,       // For single app view lazy loading
+        instancesPreviewCount: 5,   // For "All Apps" view
+        apiPageSize: 50,
         loadedPages: {},
+        apiOffset: 0,
+        hasMoreFromApi: true,
+        loadingMore: false,
+        searchingInstances: false,
         refreshInterval: null,
 
         // Lifecycle
         init() {
-            this.fetchData();
+            this.fetchInitialData();
             // No auto-refresh - user can manually refresh with the button
 
-            // Watch for search changes
+            // Watch for app search (sidebar) - local filtering only
             this.$watch('searchQuery', () => this.filterInstances());
-            this.$watch('instanceSearchQuery', () => this.filterInstances());
+
+            // Watch for instance search - API call with debounce
+            this.$watch('instanceSearchQuery', () => {
+                clearTimeout(this._searchDebounce);
+                this.searchingInstances = true;
+                this._searchDebounce = setTimeout(() => this.searchInstances(), 400);
+            });
         },
+        _searchDebounce: null,
 
         destroy() {
             if (this.refreshInterval) {
@@ -496,9 +521,15 @@ document.addEventListener('alpine:init', () => {
         },
 
         // Actions
+        async searchInstances() {
+            await this.fetchInstances();
+            this.searchingInstances = false;
+        },
+
         selectApp(appName) {
             this.selectedApp = appName;
-            this.filterInstances();
+            // Refetch instances with new app filter
+            this.fetchInstances();
         },
 
         async toggleMetricChart(appName, metricKey) {
@@ -720,35 +751,69 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        loadMoreInstances() {
-            for (const appName of Object.keys(this.displayedGroups)) {
-                const group = this.displayedGroups[appName];
-                if (!group.hasMore) continue;
+        async loadMoreInstances() {
+            // Only lazy load in single app view
+            if (this.selectedApp === null) return;
 
-                const currentPage = this.loadedPages[appName] || 1;
-                const nextPage = currentPage + 1;
-                const startIdx = nextPage * this.instancesPerPage;
-                const endIdx = startIdx + this.instancesPerPage;
+            const appName = this.selectedApp;
+            const group = this.displayedGroups[appName];
+            if (!group || !group.hasMore) return;
 
-                const sourceGroup = this.groupedInstances[appName];
-                const newInstances = sourceGroup.instances.slice(startIdx, endIdx);
+            // First, check if we can show more from already loaded data
+            const currentPage = this.loadedPages[appName] || 0;
+            const nextPage = currentPage + 1;
+            const startIdx = (nextPage) * this.instancesPerPage;
+            const endIdx = startIdx + this.instancesPerPage;
 
-                if (newInstances.length) {
-                    group.displayedInstances = [...group.displayedInstances, ...newInstances];
-                    this.loadedPages[appName] = nextPage;
-                    group.hasMore = endIdx < sourceGroup.instances.length;
+            const sourceGroup = this.groupedInstances[appName];
+            const newInstances = sourceGroup.instances.slice(startIdx, endIdx);
+
+            if (newInstances.length) {
+                group.displayedInstances = [...group.displayedInstances, ...newInstances];
+                this.loadedPages[appName] = nextPage;
+                const hasMoreLoaded = endIdx < sourceGroup.instances.length;
+                group.hasMore = hasMoreLoaded || this.hasMoreFromApi;
+            } else if (this.hasMoreFromApi && !this.loadingMore) {
+                // Need more data from API
+                await this.fetchMoreFromApi();
+            }
+        },
+
+        async fetchMoreFromApi() {
+            if (this.loadingMore || !this.hasMoreFromApi) return;
+
+            this.loadingMore = true;
+            try {
+                const response = await fetch(this.buildInstancesUrl(this.apiOffset));
+                const newInstances = await response.json();
+
+                if (newInstances.length < this.apiPageSize) {
+                    this.hasMoreFromApi = false;
                 }
+
+                if (newInstances.length > 0) {
+                    this.apiOffset += newInstances.length;
+                    this.rawInstances = [...this.rawInstances, ...newInstances];
+                    this.processData();
+                    this.filterInstances();
+                }
+            } catch (e) {
+                console.error('Failed to fetch more instances:', e);
+            } finally {
+                this.loadingMore = false;
             }
         },
 
         filterInstances() {
             this.loadedPages = {};
             let groups = this.groupedInstances;
+            const isSingleAppView = this.selectedApp !== null;
 
-            if (this.selectedApp) {
+            if (isSingleAppView) {
                 groups = { [this.selectedApp]: this.groupedInstances[this.selectedApp] };
             }
 
+            // Sidebar app search (local filter)
             if (this.searchQuery.trim()) {
                 const query = this.searchQuery.toLowerCase();
                 groups = Object.fromEntries(
@@ -761,27 +826,33 @@ document.addEventListener('alpine:init', () => {
 
             for (const [appName, group] of Object.entries(groups)) {
                 if (!group) continue;
-                let instances = group.instances;
+                const instances = group.instances;
 
-                if (this.instanceSearchQuery.trim()) {
-                    const query = this.instanceSearchQuery.toLowerCase();
-                    instances = instances.filter(inst =>
-                        inst.instance_id.toLowerCase().includes(query) ||
-                        inst.app_version.toLowerCase().includes(query) ||
-                        inst.environment.toLowerCase().includes(query) ||
-                        inst.deployment_mode.toLowerCase().includes(query)
-                    );
-                }
+                // Instance search is now done via API, no local filtering needed
 
                 if (instances.length) {
                     this.filteredInstances.push(...instances);
-                    this.displayedGroups[appName] = {
-                        ...group,
-                        instances,
-                        displayedInstances: instances.slice(0, this.instancesPerPage),
-                        hasMore: instances.length > this.instancesPerPage
-                    };
-                    this.loadedPages[appName] = 0;
+
+                    if (isSingleAppView) {
+                        // Single app view: lazy loading with pagination
+                        const hasMoreLoaded = instances.length > this.instancesPerPage;
+                        const hasMoreFromApi = this.hasMoreFromApi;
+                        this.displayedGroups[appName] = {
+                            ...group,
+                            instances,
+                            displayedInstances: instances.slice(0, this.instancesPerPage),
+                            hasMore: hasMoreLoaded || hasMoreFromApi
+                        };
+                        this.loadedPages[appName] = 0;
+                    } else {
+                        // All apps view: show only preview (5 instances), no lazy loading
+                        this.displayedGroups[appName] = {
+                            ...group,
+                            instances,
+                            displayedInstances: instances.slice(0, this.instancesPreviewCount),
+                            hasMore: false  // No lazy loading in all apps view
+                        };
+                    }
                 }
             }
         },
@@ -791,19 +862,69 @@ document.addEventListener('alpine:init', () => {
             this.currentResourceKeys = resourceKeys || [];
         },
 
-        async fetchData() {
+        buildInstancesUrl(offset = 0) {
+            const params = new URLSearchParams();
+            params.set('offset', offset);
+            params.set('limit', this.apiPageSize);
+
+            // Add app filter if in single app view
+            if (this.selectedApp) {
+                params.set('app', this.selectedApp);
+            }
+
+            // Add search filter
+            if (this.instanceSearchQuery.trim()) {
+                params.set('q', this.instanceSearchQuery.trim());
+            }
+
+            return `/api/v1/admin/instances?${params.toString()}`;
+        },
+
+        // Initial load - fetches everything (stats, apps, instances)
+        async fetchInitialData() {
             this.loading = true;
+            this.apiOffset = 0;
+            this.hasMoreFromApi = true;
+            this.rawInstances = [];
+
             try {
-                const [resStats, resList] = await Promise.all([
+                const [resStats, resApps, resList] = await Promise.all([
                     fetch('/api/v1/admin/stats'),
-                    fetch('/api/v1/admin/instances')
+                    fetch('/api/v1/admin/applications'),
+                    fetch(this.buildInstancesUrl(0))
                 ]);
                 this.stats = await resStats.json();
-                this.rawInstances = await resList.json();
+                this.applications = await resApps.json();
+                const instances = await resList.json();
+                this.rawInstances = instances;
+                this.apiOffset = instances.length;
+                this.hasMoreFromApi = instances.length >= this.apiPageSize;
                 this.processData();
                 this.filterInstances();
             } catch (e) {
-                console.error('Failed to fetch data:', e);
+                console.error('Failed to fetch initial data:', e);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Fetch only instances (for search/filter operations)
+        async fetchInstances() {
+            this.loading = true;
+            this.apiOffset = 0;
+            this.hasMoreFromApi = true;
+            this.rawInstances = [];
+
+            try {
+                const response = await fetch(this.buildInstancesUrl(0));
+                const instances = await response.json();
+                this.rawInstances = instances;
+                this.apiOffset = instances.length;
+                this.hasMoreFromApi = instances.length >= this.apiPageSize;
+                this.processData();
+                this.filterInstances();
+            } catch (e) {
+                console.error('Failed to fetch instances:', e);
             } finally {
                 this.loading = false;
             }
@@ -812,10 +933,26 @@ document.addEventListener('alpine:init', () => {
         processData() {
             const groups = {};
 
+            // Build lookup maps from applications for GitHub info
+            // Key by both slug and name for fallback matching
+            const appInfoBySlug = {};
+            const appInfoByName = {};
+            for (const app of this.applications) {
+                const info = {
+                    slug: app.slug,
+                    githubUrl: app.github_url || null,
+                    githubStars: app.stars || 0
+                };
+                appInfoBySlug[app.slug] = info;
+                appInfoByName[app.name] = info;
+            }
+
             for (const inst of this.rawInstances) {
                 const appName = inst.app_name || 'Unknown App';
 
                 if (!groups[appName]) {
+                    // Get GitHub info: try app_slug first, then fallback to app_name
+                    const appInfo = appInfoBySlug[inst.app_slug] || appInfoByName[appName] || {};
                     groups[appName] = {
                         instances: [],
                         businessKeys: new Set(),
@@ -823,7 +960,10 @@ document.addEventListener('alpine:init', () => {
                         stringKeys: new Set(),
                         sums: {},
                         osCounts: {},
-                        lastSeenGlobal: null
+                        lastSeenGlobal: null,
+                        githubUrl: appInfo.githubUrl || null,
+                        githubStars: appInfo.githubStars || 0,
+                        appSlug: inst.app_slug || appInfo.slug || ''
                     };
                 }
 
@@ -875,6 +1015,26 @@ document.addEventListener('alpine:init', () => {
             if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
             if (num >= 1e3) return (num / 1e3).toFixed(1) + 'k';
             return String(num);
+        },
+
+        getAppTotalCount(appName) {
+            // Use real total from stats API if available
+            if (this.stats.per_app_counts && this.stats.per_app_counts[appName] !== undefined) {
+                return this.stats.per_app_counts[appName];
+            }
+            // Fallback to loaded instances count
+            const group = this.groupedInstances[appName];
+            return group ? group.instances.length : 0;
+        },
+
+        get filteredApplications() {
+            if (!this.searchQuery.trim()) {
+                return this.applications;
+            }
+            const query = this.searchQuery.toLowerCase();
+            return this.applications.filter(app =>
+                app.name.toLowerCase().includes(query)
+            );
         },
 
         formatKey(key) {

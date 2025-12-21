@@ -47,6 +47,7 @@ type DashboardStats struct {
 	TotalInstances  int
 	ActiveInstances int
 	GlobalMetrics   map[string]int64
+	PerAppCounts    map[string]int // Instance count per app_name
 }
 
 // InstanceSummary holds instance data with latest metrics for listing.
@@ -60,10 +61,6 @@ type InstanceSummary struct {
 	DeploymentMode string
 	LastSeenAt     time.Time
 	Metrics        domain.Metrics
-	// Application metadata
-	GitHubURL   string
-	GitHubStars int
-	LogoURL     string
 }
 
 // MetricsTimeSeries holds time-series data for charting.
@@ -105,7 +102,10 @@ type DashboardReader interface {
 	GetStats(ctx context.Context) (DashboardStats, error)
 
 	// ListInstances returns instances with their latest metrics.
-	ListInstances(ctx context.Context, limit int) ([]InstanceSummary, error)
+	// offset and limit are used for pagination.
+	// appName filters by app name (empty = all apps).
+	// search filters by instance_id, version, environment, or deployment_mode.
+	ListInstances(ctx context.Context, offset, limit int, appName, search string) ([]InstanceSummary, error)
 
 	// GetMetricsTimeSeries returns time-series metrics for an app.
 	GetMetricsTimeSeries(ctx context.Context, appName string, since time.Time) (MetricsTimeSeries, error)

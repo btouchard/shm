@@ -34,14 +34,20 @@ func (m *mockDashboardReader) GetStats(ctx context.Context) (ports.DashboardStat
 	return m.stats, nil
 }
 
-func (m *mockDashboardReader) ListInstances(ctx context.Context, limit int) ([]ports.InstanceSummary, error) {
+func (m *mockDashboardReader) ListInstances(ctx context.Context, offset, limit int, appName, search string) ([]ports.InstanceSummary, error) {
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
-	if limit > 0 && len(m.instances) > limit {
-		return m.instances[:limit], nil
+	// Apply offset and limit
+	start := offset
+	if start >= len(m.instances) {
+		return []ports.InstanceSummary{}, nil
 	}
-	return m.instances, nil
+	end := start + limit
+	if limit <= 0 || end > len(m.instances) {
+		end = len(m.instances)
+	}
+	return m.instances[start:end], nil
 }
 
 func (m *mockDashboardReader) GetMetricsTimeSeries(ctx context.Context, appName string, since time.Time) (ports.MetricsTimeSeries, error) {
@@ -123,7 +129,7 @@ func TestDashboardService_ListInstances(t *testing.T) {
 		}
 		svc := NewDashboardService(reader)
 
-		instances, err := svc.ListInstances(ctx, 0) // 0 = default limit
+		instances, err := svc.ListInstances(ctx, 0, 0, "", "") // offset=0, limit=0 (default), no filters
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

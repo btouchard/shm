@@ -31,12 +31,18 @@ func (s *DashboardService) GetStats(ctx context.Context) (ports.DashboardStats, 
 }
 
 // ListInstances returns instances with their latest metrics.
-func (s *DashboardService) ListInstances(ctx context.Context, limit int) ([]ports.InstanceSummary, error) {
+// offset and limit are used for pagination.
+// appName filters by app name (empty = all apps).
+// search filters by instance_id, version, environment, or deployment_mode.
+func (s *DashboardService) ListInstances(ctx context.Context, offset, limit int, appName, search string) ([]ports.InstanceSummary, error) {
+	if offset < 0 {
+		offset = 0
+	}
 	if limit <= 0 {
 		limit = 50
 	}
 
-	instances, err := s.reader.ListInstances(ctx, limit)
+	instances, err := s.reader.ListInstances(ctx, offset, limit, appName, search)
 	if err != nil {
 		return nil, fmt.Errorf("list instances: %w", err)
 	}

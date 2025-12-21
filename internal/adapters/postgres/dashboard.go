@@ -27,6 +27,7 @@ func NewDashboardReader(db *sql.DB) *DashboardReader {
 func (r *DashboardReader) GetStats(ctx context.Context) (ports.DashboardStats, error) {
 	var stats ports.DashboardStats
 	stats.GlobalMetrics = make(map[string]int64)
+	stats.PerAppCounts = make(map[string]int)
 
 	// Get instance counts
 	countsQuery := `
@@ -37,6 +38,28 @@ func (r *DashboardReader) GetStats(ctx context.Context) (ports.DashboardStats, e
 	`
 	if err := r.db.QueryRowContext(ctx, countsQuery).Scan(&stats.TotalInstances, &stats.ActiveInstances); err != nil {
 		return stats, fmt.Errorf("get instance counts: %w", err)
+	}
+
+	// Get per-app instance counts
+	perAppQuery := `
+		SELECT app_name, COUNT(*) as count
+		FROM instances
+		WHERE app_name IS NOT NULL AND app_name != ''
+		GROUP BY app_name
+	`
+	appRows, err := r.db.QueryContext(ctx, perAppQuery)
+	if err != nil {
+		return stats, fmt.Errorf("get per-app counts: %w", err)
+	}
+	defer appRows.Close()
+
+	for appRows.Next() {
+		var appName string
+		var count int
+		if err := appRows.Scan(&appName, &count); err != nil {
+			continue
+		}
+		stats.PerAppCounts[appName] = count
 	}
 
 	// Get aggregated metrics from latest snapshots
@@ -79,12 +102,16 @@ func (r *DashboardReader) GetStats(ctx context.Context) (ports.DashboardStats, e
 }
 
 // ListInstances returns instances with their latest metrics.
-func (r *DashboardReader) ListInstances(ctx context.Context, limit int) ([]ports.InstanceSummary, error) {
+// offset and limit are used for pagination.
+// appName filters by app name (empty = all apps).
+// search filters by instance_id, version, environment, or deployment_mode.
+func (r *DashboardReader) ListInstances(ctx context.Context, offset, limit int, appName, search string) ([]ports.InstanceSummary, error) {
+	// Build dynamic query with optional filters
 	query := `
 		SELECT
 			i.instance_id, i.app_name, i.app_version, i.environment, i.status, i.last_seen_at, i.deployment_mode,
 			COALESCE(s.data, '{}'::jsonb),
-			a.app_slug, a.github_url, a.github_stars, a.logo_url
+			a.app_slug
 		FROM instances i
 		LEFT JOIN applications a ON i.application_id = a.id
 		LEFT JOIN LATERAL (
@@ -93,10 +120,36 @@ func (r *DashboardReader) ListInstances(ctx context.Context, limit int) ([]ports
 			ORDER BY snapshot_at DESC
 			LIMIT 1
 		) s ON true
-		ORDER BY i.last_seen_at DESC
-		LIMIT $1
+		WHERE 1=1
 	`
-	rows, err := r.db.QueryContext(ctx, query, limit)
+
+	args := []any{}
+	argIdx := 1
+
+	// Filter by app name
+	if appName != "" {
+		query += fmt.Sprintf(" AND i.app_name = $%d", argIdx)
+		args = append(args, appName)
+		argIdx++
+	}
+
+	// Filter by search term (case-insensitive)
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		query += fmt.Sprintf(` AND (
+			i.instance_id::text ILIKE $%d OR
+			i.app_version ILIKE $%d OR
+			i.environment ILIKE $%d OR
+			i.deployment_mode ILIKE $%d
+		)`, argIdx, argIdx, argIdx, argIdx)
+		args = append(args, searchPattern)
+		argIdx++
+	}
+
+	query += fmt.Sprintf(" ORDER BY i.last_seen_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
+	args = append(args, limit, offset)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list instances: %w", err)
 	}
@@ -107,8 +160,7 @@ func (r *DashboardReader) ListInstances(ctx context.Context, limit int) ([]ports
 		var instanceID, status string
 		var summary ports.InstanceSummary
 		var rawMetrics []byte
-		var appSlug, githubURL, logoURL sql.NullString
-		var githubStars sql.NullInt64
+		var appSlug sql.NullString
 
 		err := rows.Scan(
 			&instanceID,
@@ -120,9 +172,6 @@ func (r *DashboardReader) ListInstances(ctx context.Context, limit int) ([]ports
 			&summary.DeploymentMode,
 			&rawMetrics,
 			&appSlug,
-			&githubURL,
-			&githubStars,
-			&logoURL,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan instance: %w", err)
@@ -132,18 +181,8 @@ func (r *DashboardReader) ListInstances(ctx context.Context, limit int) ([]ports
 		summary.Status = domain.InstanceStatus(status)
 		_ = json.Unmarshal(rawMetrics, &summary.Metrics)
 
-		// Add application metadata
 		if appSlug.Valid {
 			summary.AppSlug = appSlug.String
-		}
-		if githubURL.Valid {
-			summary.GitHubURL = githubURL.String
-		}
-		if githubStars.Valid {
-			summary.GitHubStars = int(githubStars.Int64)
-		}
-		if logoURL.Valid {
-			summary.LogoURL = logoURL.String
 		}
 
 		list = append(list, summary)
@@ -264,7 +303,7 @@ func (r *DashboardReader) GetMostUsedVersion(ctx context.Context, appSlug string
 // GetAggregatedMetric sums a specific metric across all active instances of an app.
 func (r *DashboardReader) GetAggregatedMetric(ctx context.Context, appSlug, metricName string) (float64, error) {
 	query := `
-		SELECT COALESCE(SUM((s.data->>$3)::numeric), 0)
+		SELECT COALESCE(SUM((latest.data->>$2)::numeric), 0)
 		FROM (
 			SELECT DISTINCT ON (i.instance_id) i.instance_id, s.data
 			FROM instances i
@@ -273,7 +312,7 @@ func (r *DashboardReader) GetAggregatedMetric(ctx context.Context, appSlug, metr
 				SELECT data
 				FROM snapshots
 				WHERE instance_id = i.instance_id
-				  AND data ? $3
+				  AND jsonb_exists(data, $2)
 				ORDER BY snapshot_at DESC
 				LIMIT 1
 			) s ON true
@@ -284,7 +323,7 @@ func (r *DashboardReader) GetAggregatedMetric(ctx context.Context, appSlug, metr
 	`
 
 	var total float64
-	err := r.db.QueryRowContext(ctx, query, appSlug, appSlug, metricName).Scan(&total)
+	err := r.db.QueryRowContext(ctx, query, appSlug, metricName).Scan(&total)
 	if err != nil {
 		return 0, fmt.Errorf("get aggregated metric: %w", err)
 	}
@@ -305,7 +344,7 @@ func (r *DashboardReader) GetCombinedStats(ctx context.Context, appSlug, metricN
 				SELECT data
 				FROM snapshots
 				WHERE instance_id = i.instance_id
-				  AND data ? $2
+				  AND jsonb_exists(data, $2)
 				ORDER BY snapshot_at DESC
 				LIMIT 1
 			) s ON true

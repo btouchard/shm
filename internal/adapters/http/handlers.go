@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/btouchard/shm/internal/app"
@@ -176,6 +177,7 @@ func (h *Handlers) AdminStats(w http.ResponseWriter, r *http.Request) {
 		"total_instances":  stats.TotalInstances,
 		"active_instances": stats.ActiveInstances,
 		"global_metrics":   stats.GlobalMetrics,
+		"per_app_counts":   stats.PerAppCounts,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(response)
@@ -183,7 +185,25 @@ func (h *Handlers) AdminStats(w http.ResponseWriter, r *http.Request) {
 
 // AdminInstances handles instance listing requests.
 func (h *Handlers) AdminInstances(w http.ResponseWriter, r *http.Request) {
-	instances, err := h.dashboard.ListInstances(r.Context(), 50)
+	// Parse pagination params
+	offset := 0
+	limit := 50
+	if v := r.URL.Query().Get("offset"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+
+	// Parse filter params
+	appName := r.URL.Query().Get("app")    // Filter by app name
+	search := r.URL.Query().Get("q")       // Search in instance_id, version, env, mode
+
+	instances, err := h.dashboard.ListInstances(r.Context(), offset, limit, appName, search)
 	if err != nil {
 		h.logger.Error("failed to list instances", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -209,15 +229,6 @@ func (h *Handlers) AdminInstances(w http.ResponseWriter, r *http.Request) {
 			"last_seen_at":    inst.LastSeenAt,
 			"deployment_mode": inst.DeploymentMode,
 			"metrics":         inst.Metrics,
-		}
-
-		// Add application metadata if available
-		if inst.GitHubURL != "" {
-			item["github_url"] = inst.GitHubURL
-			item["github_stars"] = inst.GitHubStars
-		}
-		if inst.LogoURL != "" {
-			item["logo_url"] = inst.LogoURL
 		}
 
 		response = append(response, item)
