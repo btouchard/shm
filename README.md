@@ -47,6 +47,60 @@ When you distribute self-hosted software (on-premise), you fly blind. You don't 
 
 ---
 
+## 🎖️ Public Badges
+
+Display your SHM metrics in your README with embeddable SVG badges.
+
+### Available Badges
+
+#### Active Instances
+
+![Instances Badge](https://your-shm-server.example.com/badge/your-app/instances)
+
+```markdown
+![Instances](https://your-shm-server.example.com/badge/your-app/instances)
+```
+
+#### Most Used Version
+
+![Version Badge](https://your-shm-server.example.com/badge/your-app/version)
+
+```markdown
+![Version](https://your-shm-server.example.com/badge/your-app/version)
+```
+
+#### Aggregated Metrics
+
+![Users Badge](https://your-shm-server.example.com/badge/your-app/metric/users_count)
+
+```markdown
+![Users](https://your-shm-server.example.com/badge/your-app/metric/users_count)
+```
+
+#### Combined Stats
+
+![Adoption Badge](https://your-shm-server.example.com/badge/your-app/combined?metric=users_count)
+
+```markdown
+![Adoption](https://your-shm-server.example.com/badge/your-app/combined?metric=users_count)
+```
+
+### Customization
+
+All badges support query parameters for customization:
+
+- `?color=00D084` - Custom hex color (without #)
+- `?label=custom` - Custom label text
+
+Example:
+```markdown
+![Custom](https://your-shm-server.example.com/badge/your-app/instances?color=8B5CF6&label=deployments)
+```
+
+**Note:** Replace `your-shm-server.example.com` with your actual SHM server URL and `your-app` with your application slug.
+
+---
+
 <table>
   <tr>
     <td align="center">

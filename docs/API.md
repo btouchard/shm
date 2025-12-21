@@ -522,6 +522,301 @@ export GITHUB_TOKEN="ghp_your_token_here"
 
 ---
 
+## Public Badge Endpoints
+
+SHM provides public SVG badge endpoints for displaying metrics in README files and documentation. These endpoints require no authentication and have no rate limiting.
+
+All badges return SVG images with:
+- **Content-Type:** `image/svg+xml;charset=utf-8`
+- **Cache-Control:** `public, max-age=300` (5 minutes)
+- **Active instances:** Defined as instances with `last_seen_at` within the last 30 days
+
+### GET /badge/{app-slug}/instances
+
+Returns a badge showing the count of active instances for an application.
+
+**Parameters:**
+
+| Parameter | Location | Type | Required | Description |
+|-----------|----------|------|----------|-------------|
+| `app-slug` | Path | string | Yes | Application slug |
+| `color` | Query | string | No | Custom hex color (without #) |
+| `label` | Query | string | No | Custom label text (default: "instances") |
+
+**Example:**
+
+```
+GET /badge/my-app/instances
+GET /badge/my-app/instances?color=00D084&label=deployments
+```
+
+**Response:**
+
+SVG image with format: `[label] [count]`
+
+Color-coded based on count:
+- Green (#00D084): ≥10 instances
+- Yellow (#F59E0B): 5-9 instances
+- Red (#EF4444): <5 instances
+
+---
+
+### GET /badge/{app-slug}/version
+
+Returns a badge showing the most commonly used version for an application.
+
+**Parameters:**
+
+| Parameter | Location | Type | Required | Description |
+|-----------|----------|------|----------|-------------|
+| `app-slug` | Path | string | Yes | Application slug |
+| `color` | Query | string | No | Custom hex color (without #, default: purple) |
+| `label` | Query | string | No | Custom label text (default: "version") |
+
+**Example:**
+
+```
+GET /badge/my-app/version
+GET /badge/my-app/version?color=8B5CF6&label=latest
+```
+
+**Response:**
+
+SVG image with format: `[label] [version]`
+
+If no active instances are found, displays "no data".
+
+---
+
+### GET /badge/{app-slug}/metric/{metric-name}
+
+Returns a badge showing an aggregated metric value across all active instances.
+
+**Parameters:**
+
+| Parameter | Location | Type | Required | Description |
+|-----------|----------|------|----------|-------------|
+| `app-slug` | Path | string | Yes | Application slug |
+| `metric-name` | Path | string | Yes | Name of the metric to aggregate |
+| `color` | Query | string | No | Custom hex color (without #) |
+| `label` | Query | string | No | Custom label text (default: metric name) |
+
+**Example:**
+
+```
+GET /badge/my-app/metric/users_count
+GET /badge/my-app/metric/documents_count?label=documents
+```
+
+**Response:**
+
+SVG image with format: `[label] [value]`
+
+The metric value is summed across all active instances. Numbers are formatted compactly:
+- 1000+ → "1.0k"
+- 1000000+ → "1.0M"
+- 1000000000+ → "1.0B"
+
+Color-coded based on value:
+- Green (#00D084): ≥1000
+- Yellow (#F59E0B): 100-999
+- Red (#EF4444): <100
+
+---
+
+### GET /badge/{app-slug}/combined
+
+Returns a combined badge showing both an aggregated metric value and instance count.
+
+**Parameters:**
+
+| Parameter | Location | Type | Required | Description |
+|-----------|----------|------|----------|-------------|
+| `app-slug` | Path | string | Yes | Application slug |
+| `metric` | Query | string | No | Metric to aggregate (default: "users_count") |
+| `color` | Query | string | No | Custom hex color (without #, default: indigo) |
+| `label` | Query | string | No | Custom label text (default: "adoption") |
+
+**Example:**
+
+```
+GET /badge/my-app/combined
+GET /badge/my-app/combined?metric=documents_count&label=usage
+```
+
+**Response:**
+
+SVG image with format: `[label] [metric] / [instances]`
+
+Example output: "adoption 1.2k / 42" (1.2k users across 42 instances)
+
+---
+
+### Error Badges
+
+If an error occurs (invalid slug, metric not found, database error), the endpoint returns a red error badge instead of failing:
+
+```
+[error] [error message]
+```
+
+This ensures badges remain functional even when data is temporarily unavailable.
+
+---
+
+## Admin API
+
+The following endpoints are intended for administrative use and are not used by instances.
+
+### GET /api/v1/admin/applications
+
+List all applications tracked by the server.
+
+**Response:**
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "slug": "my-app",
+    "name": "My Awesome App",
+    "github_url": "https://github.com/owner/repo",
+    "github_stars": 1234,
+    "github_stars_updated_at": "2024-01-15T10:30:00Z",
+    "logo_url": "https://example.com/logo.png",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-15T10:30:00Z"
+  }
+]
+```
+
+**Status Codes:**
+
+| Code | Description |
+|------|-------------|
+| 200 | Success |
+| 500 | Server error |
+
+---
+
+### GET /api/v1/admin/applications/{slug}
+
+Get details for a specific application by slug.
+
+**Response:**
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "slug": "my-app",
+  "name": "My Awesome App",
+  "github_url": "https://github.com/owner/repo",
+  "github_stars": 1234,
+  "github_stars_updated_at": "2024-01-15T10:30:00Z",
+  "logo_url": "https://example.com/logo.png",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-15T10:30:00Z"
+}
+```
+
+**Status Codes:**
+
+| Code | Description |
+|------|-------------|
+| 200 | Success |
+| 404 | Application not found |
+| 500 | Server error |
+
+---
+
+### PUT /api/v1/admin/applications/{slug}
+
+Update an application's metadata.
+
+**Request Body:**
+
+```json
+{
+  "github_url": "https://github.com/owner/repo",
+  "logo_url": "https://example.com/logo.png"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `github_url` | string | No | GitHub repository URL (must be https://github.com/owner/repo format) |
+| `logo_url` | string | No | Custom logo URL |
+
+**Response:**
+
+```json
+{
+  "status": "ok",
+  "message": "Application updated successfully"
+}
+```
+
+**Status Codes:**
+
+| Code | Description |
+|------|-------------|
+| 200 | Application updated |
+| 400 | Invalid request body or GitHub URL |
+| 404 | Application not found |
+| 500 | Server error |
+
+---
+
+### POST /api/v1/admin/applications/{slug}/refresh-stars
+
+Manually trigger a GitHub stars refresh for a specific application.
+
+**Response:**
+
+```json
+{
+  "status": "ok",
+  "stars": 1234,
+  "message": "Stars refreshed successfully"
+}
+```
+
+**Status Codes:**
+
+| Code | Description |
+|------|-------------|
+| 200 | Stars refreshed successfully |
+| 400 | Application has no GitHub URL configured |
+| 404 | Application not found |
+| 500 | Server error or GitHub API error |
+
+---
+
+## GitHub Stars
+
+SHM automatically fetches and displays GitHub repository stars for applications with a configured `github_url`.
+
+### Automatic Refresh
+
+- Stars are refreshed hourly via a background scheduler
+- Only applications with a GitHub URL and stale data (>1 hour old) are refreshed
+- Uses 1-hour caching to respect GitHub API rate limits
+
+### Rate Limits
+
+| Authentication | Requests per Hour |
+|----------------|-------------------|
+| No token (unauthenticated) | 60 |
+| With `GITHUB_TOKEN` | 5000 |
+
+**Recommendation:** Set the `GITHUB_TOKEN` environment variable with a GitHub Personal Access Token to avoid rate limit issues.
+
+```bash
+export GITHUB_TOKEN="ghp_your_token_here"
+```
+
+---
+
 ## SDK
 
 An official Go SDK is available at [`sdk/golang/`](../sdk/golang/). It handles keypair generation, storage, registration, and periodic snapshot sending automatically.

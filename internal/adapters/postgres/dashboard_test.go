@@ -28,6 +28,12 @@ func TestDashboardReader_GetStats(t *testing.T) {
 			AddRow(100, 75)
 		mock.ExpectQuery("SELECT.+COUNT").WillReturnRows(countRows)
 
+		// Mock per-app counts query
+		perAppRows := sqlmock.NewRows([]string{"app_name", "count"}).
+			AddRow("myapp", 60).
+			AddRow("otherapp", 40)
+		mock.ExpectQuery("SELECT app_name, COUNT").WillReturnRows(perAppRows)
+
 		// Mock metrics query
 		metricsRows := sqlmock.NewRows([]string{"data"}).
 			AddRow(`{"cpu": 50, "memory": 1024}`).
@@ -69,17 +75,15 @@ func TestDashboardReader_ListInstances(t *testing.T) {
 
 		rows := sqlmock.NewRows([]string{
 			"instance_id", "app_name", "app_version", "environment",
-			"status", "last_seen_at", "deployment_mode", "data",
-			"app_slug", "github_url", "github_stars", "logo_url",
+			"status", "last_seen_at", "deployment_mode", "data", "app_slug",
 		}).
-			AddRow(testUUID, "myapp", "1.0", "prod", "active", now, "docker", `{"cpu": 0.5}`,
-				"myapp", "https://github.com/owner/repo", 42, "https://example.com/logo.png")
+			AddRow(testUUID, "myapp", "1.0", "prod", "active", now, "docker", `{"cpu": 0.5}`, "myapp")
 
 		mock.ExpectQuery("SELECT.+FROM instances").
-			WithArgs(50).
+			WithArgs(50, 0).
 			WillReturnRows(rows)
 
-		list, err := reader.ListInstances(ctx, 50)
+		list, err := reader.ListInstances(ctx, 0, 50, "", "")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

@@ -28,10 +28,10 @@ func (r *ApplicationRepository) Save(ctx context.Context, app *domain.Applicatio
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (app_slug) DO UPDATE
 		SET app_name = EXCLUDED.app_name,
-			github_url = EXCLUDED.github_url,
-			github_stars = EXCLUDED.github_stars,
-			github_stars_updated_at = EXCLUDED.github_stars_updated_at,
-			logo_url = EXCLUDED.logo_url,
+			github_url = COALESCE(EXCLUDED.github_url, applications.github_url),
+			github_stars = CASE WHEN EXCLUDED.github_stars > 0 THEN EXCLUDED.github_stars ELSE applications.github_stars END,
+			github_stars_updated_at = CASE WHEN EXCLUDED.github_stars > 0 THEN EXCLUDED.github_stars_updated_at ELSE applications.github_stars_updated_at END,
+			logo_url = COALESCE(EXCLUDED.logo_url, applications.logo_url),
 			updated_at = EXCLUDED.updated_at
 		RETURNING id
 	`

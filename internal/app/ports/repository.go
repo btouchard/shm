@@ -47,6 +47,7 @@ type DashboardStats struct {
 	TotalInstances  int
 	ActiveInstances int
 	GlobalMetrics   map[string]int64
+	PerAppCounts    map[string]int // Instance count per app_name
 }
 
 // InstanceSummary holds instance data with latest metrics for listing.
@@ -105,8 +106,29 @@ type DashboardReader interface {
 	GetStats(ctx context.Context) (DashboardStats, error)
 
 	// ListInstances returns instances with their latest metrics.
-	ListInstances(ctx context.Context, limit int) ([]InstanceSummary, error)
+	// offset and limit are used for pagination.
+	// appName filters by app name (empty = all apps).
+	// search filters by instance_id, version, environment, or deployment_mode.
+	ListInstances(ctx context.Context, offset, limit int, appName, search string) ([]InstanceSummary, error)
 
 	// GetMetricsTimeSeries returns time-series metrics for an app.
 	GetMetricsTimeSeries(ctx context.Context, appName string, since time.Time) (MetricsTimeSeries, error)
+
+	// Badge-specific queries
+
+	// GetActiveInstancesCount returns the count of active instances for an app.
+	// Active = last_seen_at within the last 30 days.
+	GetActiveInstancesCount(ctx context.Context, appSlug string) (int, error)
+
+	// GetMostUsedVersion returns the most commonly used version for an app.
+	// Returns empty string if no instances found.
+	GetMostUsedVersion(ctx context.Context, appSlug string) (string, error)
+
+	// GetAggregatedMetric sums a specific metric across all active instances of an app.
+	// Returns 0 if metric not found or no active instances.
+	GetAggregatedMetric(ctx context.Context, appSlug, metricName string) (float64, error)
+
+	// GetCombinedStats returns both an aggregated metric and instance count.
+	// Used for the combined badge (e.g., "1.2k users / 42 inst").
+	GetCombinedStats(ctx context.Context, appSlug, metricName string) (metricValue float64, instanceCount int, err error)
 }
