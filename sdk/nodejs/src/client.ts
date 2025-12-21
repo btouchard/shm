@@ -74,8 +74,9 @@ export class SHMClient {
       appVersion: config.appVersion,
       dataDir,
       environment: config.environment,
-      enabled: config.enabled ?? true,
+      enabled: isDoNotTrack() ? false : (config.enabled ?? true),
       reportIntervalMs,
+      collectSystemMetrics: config.collectSystemMetrics ?? collectSystemMetricsFromEnv(),
     };
 
     // Load or generate identity
@@ -226,7 +227,7 @@ export class SHMClient {
         customMetrics = await this.provider();
       }
 
-      const systemMetrics = this.getSystemMetrics();
+      const systemMetrics = this.config.collectSystemMetrics ? this.getSystemMetrics() : {};
       const metrics = { ...customMetrics, ...systemMetrics };
 
       const payload: SnapshotRequest = {
@@ -368,4 +369,21 @@ function isContainerCgroup(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Reads SHM_COLLECT_SYSTEM_METRICS environment variable.
+ * Returns true by default (enabled), false only if explicitly set to "false" or "0".
+ */
+export function collectSystemMetricsFromEnv(): boolean {
+  const val = (process.env['SHM_COLLECT_SYSTEM_METRICS'] ?? '').toLowerCase();
+  return val !== 'false' && val !== '0';
+}
+
+/**
+ * Checks if DO_NOT_TRACK environment variable is set to disable telemetry.
+ */
+function isDoNotTrack(): boolean {
+  const val = (process.env['DO_NOT_TRACK'] ?? '').toLowerCase();
+  return val === 'true' || val === '1';
 }

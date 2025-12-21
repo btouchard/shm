@@ -400,6 +400,8 @@ caddy hash-password --plaintext 'your-secure-password'
 
 ## Environment Variables
 
+### Server-side
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SHM_DB_DSN` | (required) | PostgreSQL connection string |
@@ -407,6 +409,34 @@ caddy hash-password --plaintext 'your-secure-password'
 | `GITHUB_TOKEN` | - | GitHub Personal Access Token for higher API rate limits |
 
 For the full list of environment variables (including rate limiting), see [README.md](../README.md#environment-variables).
+
+### Client-side (SDK)
+
+These environment variables are read by the SHM clients (Go, Node.js) running in your applications:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DO_NOT_TRACK` | - | Set to `true` or `1` to **completely disable telemetry**. No data will be sent to the server. This overrides the `enabled` configuration option. |
+| `SHM_COLLECT_SYSTEM_METRICS` | `true` | Set to `false` or `0` to disable automatic system metrics collection (OS, CPU, memory). Custom metrics will still be sent. |
+
+#### Respecting User Privacy
+
+All SHM clients respect the standard `DO_NOT_TRACK` environment variable. This allows end-users to opt-out of telemetry at the system level:
+
+```bash
+# In the environment where your application runs
+export DO_NOT_TRACK=true
+```
+
+When `DO_NOT_TRACK` is enabled:
+- No network requests are made to the SHM server
+- No identity file is accessed
+- The client silently disables itself
+
+This is useful for:
+- Users who want to opt-out of all telemetry
+- Development/testing environments
+- Privacy-conscious deployments
 
 ---
 

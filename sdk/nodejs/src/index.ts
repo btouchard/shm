@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-export { SHMClient } from './client.js';
+export { SHMClient, collectSystemMetricsFromEnv } from './client.js';
 export type {
   Config,
   MetricsProvider,

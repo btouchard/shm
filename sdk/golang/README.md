@@ -65,6 +65,28 @@ func main() {
 | `Environment` | `string` | `""` | Environment identifier (production, staging, etc.) |
 | `Enabled` | `bool` | `false` | Enable/disable telemetry |
 | `ReportInterval` | `time.Duration` | `1h` | Interval between snapshots (minimum: 1m) |
+| `CollectSystemMetrics` | `bool` | `false` | Collect OS/runtime metrics (use `CollectSystemMetricsFromEnv()`) |
+
+## Environment Variables
+
+| Variable | Effect |
+|----------|--------|
+| `DO_NOT_TRACK=true` or `1` | **Completely disables telemetry** — overrides `Enabled: true` |
+| `SHM_COLLECT_SYSTEM_METRICS=false` or `0` | Disables system metrics collection (enabled by default) |
+
+### Example with environment variables
+
+```go
+client, _ := shm.New(shm.Config{
+    ServerURL:            "https://telemetry.example.com",
+    AppName:              "my-app",
+    AppVersion:           "1.0.0",
+    Enabled:              true,
+    CollectSystemMetrics: shm.CollectSystemMetricsFromEnv(), // reads SHM_COLLECT_SYSTEM_METRICS
+})
+```
+
+> **Note:** If `DO_NOT_TRACK=true` or `DO_NOT_TRACK=1` is set, the client will be disabled regardless of the `Enabled` configuration.
 
 ## How It Works
 

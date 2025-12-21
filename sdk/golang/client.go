@@ -20,13 +20,14 @@ import (
 )
 
 type Config struct {
-	ServerURL      string
-	AppName        string
-	AppVersion     string
-	DataDir        string // where is store app_shm_identity.json
-	Environment    string // prod, staging, ...
-	Enabled        bool
-	ReportInterval time.Duration // snapshots interval (default: 1h)
+	ServerURL            string
+	AppName              string
+	AppVersion           string
+	DataDir              string        // where is store app_shm_identity.json
+	Environment          string        // prod, staging, ...
+	Enabled              bool
+	ReportInterval       time.Duration // snapshots interval (default: 1h)
+	CollectSystemMetrics bool          // collect OS/runtime metrics (env: SHM_COLLECT_SYSTEM_METRICS)
 }
 
 type MetricsProvider func() map[string]interface{}
@@ -48,6 +49,10 @@ func New(cfg Config) (*Client, error) {
 		cfg.ReportInterval = 1 * time.Hour
 	} else if cfg.ReportInterval < time.Minute {
 		cfg.ReportInterval = time.Minute
+	}
+
+	if isDoNotTrack() {
+		cfg.Enabled = false
 	}
 
 	ensureDataDir(cfg.DataDir)
@@ -157,9 +162,11 @@ func (c *Client) sendSnapshot() {
 	if c.provider != nil {
 		data = c.provider()
 	}
-	sysData := c.getSystemMetrics()
-	for k, v := range sysData {
-		data[k] = v
+	if c.config.CollectSystemMetrics {
+		sysData := c.getSystemMetrics()
+		for k, v := range sysData {
+			data[k] = v
+		}
 	}
 	metricsJSON, _ := json.Marshal(data)
 
@@ -251,6 +258,16 @@ func ensureDataDir(dir string) {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		_ = os.MkdirAll(dir, 0755)
 	}
+}
+
+func CollectSystemMetricsFromEnv() bool {
+	val := strings.ToLower(os.Getenv("SHM_COLLECT_SYSTEM_METRICS"))
+	return val != "false" && val != "0"
+}
+
+func isDoNotTrack() bool {
+	val := strings.ToLower(os.Getenv("DO_NOT_TRACK"))
+	return val == "true" || val == "1"
 }
 
 func slug(s string) string {

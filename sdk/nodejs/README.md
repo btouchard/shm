@@ -50,8 +50,32 @@ interface Config {
   environment?: string;     // Environment identifier (production, staging, etc.)
   enabled?: boolean;        // Enable/disable telemetry (default: true)
   reportIntervalMs?: number; // Interval between snapshots in ms (default: 3600000, min: 60000)
+  collectSystemMetrics?: boolean; // Collect OS/runtime metrics (default: true via env)
 }
 ```
+
+## Environment Variables
+
+| Variable | Effect |
+|----------|--------|
+| `DO_NOT_TRACK=true` or `1` | **Completely disables telemetry** — overrides `enabled: true` |
+| `SHM_COLLECT_SYSTEM_METRICS=false` or `0` | Disables system metrics collection (enabled by default) |
+
+### Example with environment variables
+
+```typescript
+import { SHMClient, collectSystemMetricsFromEnv } from '@btouchard/shm-sdk';
+
+const client = new SHMClient({
+  serverUrl: 'https://telemetry.example.com',
+  appName: 'my-app',
+  appVersion: '1.0.0',
+  enabled: true,
+  collectSystemMetrics: collectSystemMetricsFromEnv(), // reads SHM_COLLECT_SYSTEM_METRICS
+});
+```
+
+> **Note:** If `DO_NOT_TRACK=true` or `DO_NOT_TRACK=1` is set, the client will be disabled regardless of the `enabled` configuration.
 
 ## How It Works
 

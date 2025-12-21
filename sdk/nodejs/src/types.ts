@@ -18,6 +18,8 @@ export interface Config {
   enabled?: boolean;
   /** Interval between snapshots in milliseconds (default: 3600000 = 1 hour, minimum: 60000 = 1 minute) */
   reportIntervalMs?: number;
+  /** Collect OS/runtime metrics (env: SHM_COLLECT_SYSTEM_METRICS, default: true) */
+  collectSystemMetrics?: boolean;
 }
 
 /**

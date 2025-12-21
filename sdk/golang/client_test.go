@@ -600,3 +600,191 @@ func TestClient_RegisterError_BadStatusCode(t *testing.T) {
 		t.Errorf("error should mention status code: %v", err)
 	}
 }
+
+// =============================================================================
+// COLLECT SYSTEM METRICS TESTS
+// =============================================================================
+
+func TestClient_SnapshotWithSystemMetrics(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	var receivedMetrics map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/snapshot" {
+			bodyBytes, _ := io.ReadAll(r.Body)
+			var body map[string]interface{}
+			json.Unmarshal(bodyBytes, &body)
+			if metricsRaw, ok := body["metrics"].(string); ok {
+				json.Unmarshal([]byte(metricsRaw), &receivedMetrics)
+			} else if metricsMap, ok := body["metrics"].(map[string]interface{}); ok {
+				receivedMetrics = metricsMap
+			}
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+
+	cfg := Config{
+		ServerURL:            server.URL,
+		AppName:              "test-app",
+		AppVersion:           "1.0.0",
+		DataDir:              tmpDir,
+		Enabled:              true,
+		CollectSystemMetrics: true,
+	}
+
+	client, _ := New(cfg)
+	client.SetProvider(func() map[string]interface{} {
+		return map[string]interface{}{"custom_metric": 123}
+	})
+	client.sendSnapshot()
+
+	// Should contain system metrics
+	systemFields := []string{"sys_os", "sys_arch", "sys_cpu_cores", "sys_go_version", "sys_mode"}
+	for _, field := range systemFields {
+		if _, ok := receivedMetrics[field]; !ok {
+			t.Errorf("expected system metric %q when CollectSystemMetrics=true", field)
+		}
+	}
+
+	// Should also contain custom metric
+	if receivedMetrics["custom_metric"] != float64(123) {
+		t.Errorf("custom_metric = %v, want 123", receivedMetrics["custom_metric"])
+	}
+}
+
+func TestClient_SnapshotWithoutSystemMetrics(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	var receivedMetrics map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/snapshot" {
+			bodyBytes, _ := io.ReadAll(r.Body)
+			var body map[string]interface{}
+			json.Unmarshal(bodyBytes, &body)
+			if metricsRaw, ok := body["metrics"].(string); ok {
+				json.Unmarshal([]byte(metricsRaw), &receivedMetrics)
+			} else if metricsMap, ok := body["metrics"].(map[string]interface{}); ok {
+				receivedMetrics = metricsMap
+			}
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+
+	cfg := Config{
+		ServerURL:            server.URL,
+		AppName:              "test-app",
+		AppVersion:           "1.0.0",
+		DataDir:              tmpDir,
+		Enabled:              true,
+		CollectSystemMetrics: false,
+	}
+
+	client, _ := New(cfg)
+	client.SetProvider(func() map[string]interface{} {
+		return map[string]interface{}{"custom_metric": 456}
+	})
+	client.sendSnapshot()
+
+	// Should NOT contain system metrics
+	systemFields := []string{"sys_os", "sys_arch", "sys_cpu_cores", "sys_go_version", "sys_mode"}
+	for _, field := range systemFields {
+		if _, ok := receivedMetrics[field]; ok {
+			t.Errorf("unexpected system metric %q when CollectSystemMetrics=false", field)
+		}
+	}
+
+	// Should still contain custom metric
+	if receivedMetrics["custom_metric"] != float64(456) {
+		t.Errorf("custom_metric = %v, want 456", receivedMetrics["custom_metric"])
+	}
+}
+
+func TestCollectSystemMetricsFromEnv(t *testing.T) {
+	tests := []struct {
+		envValue string
+		expected bool
+	}{
+		{"", true},      // absent = enabled
+		{"true", true},
+		{"TRUE", true},
+		{"1", true},
+		{"false", false},
+		{"FALSE", false},
+		{"0", false},
+		{"anything", true}, // unknown = enabled
+	}
+
+	for _, tt := range tests {
+		t.Run("env="+tt.envValue, func(t *testing.T) {
+			if tt.envValue == "" {
+				os.Unsetenv("SHM_COLLECT_SYSTEM_METRICS")
+			} else {
+				os.Setenv("SHM_COLLECT_SYSTEM_METRICS", tt.envValue)
+			}
+			defer os.Unsetenv("SHM_COLLECT_SYSTEM_METRICS")
+
+			result := CollectSystemMetricsFromEnv()
+			if result != tt.expected {
+				t.Errorf("CollectSystemMetricsFromEnv() with env=%q = %v, want %v", tt.envValue, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDoNotTrack(t *testing.T) {
+	tests := []struct {
+		envValue string
+		expected bool
+	}{
+		{"", false},        // absent = tracking allowed
+		{"true", true},     // disabled
+		{"TRUE", true},     // disabled
+		{"1", true},        // disabled
+		{"false", false},   // tracking allowed
+		{"0", false},       // tracking allowed
+		{"anything", false}, // unknown = tracking allowed
+	}
+
+	for _, tt := range tests {
+		t.Run("DO_NOT_TRACK="+tt.envValue, func(t *testing.T) {
+			if tt.envValue == "" {
+				os.Unsetenv("DO_NOT_TRACK")
+			} else {
+				os.Setenv("DO_NOT_TRACK", tt.envValue)
+			}
+			defer os.Unsetenv("DO_NOT_TRACK")
+
+			result := isDoNotTrack()
+			if result != tt.expected {
+				t.Errorf("isDoNotTrack() with env=%q = %v, want %v", tt.envValue, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestClient_DoNotTrack_DisablesClient(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	os.Setenv("DO_NOT_TRACK", "true")
+	defer os.Unsetenv("DO_NOT_TRACK")
+
+	cfg := Config{
+		ServerURL:  "http://localhost:8080",
+		AppName:    "test-app",
+		AppVersion: "1.0.0",
+		DataDir:    tmpDir,
+		Enabled:    true, // explicitly enabled
+	}
+
+	client, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	// DO_NOT_TRACK should override Enabled
+	if client.config.Enabled != false {
+		t.Errorf("config.Enabled = %v, want false when DO_NOT_TRACK=true", client.config.Enabled)
+	}
+}

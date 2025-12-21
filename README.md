@@ -344,6 +344,24 @@ graph LR
 *   **Authentication:** The server uses a "Trust on First Use" (TOFU) or explicit activation model. Once an ID is registered with a Public Key, only that key can sign updates.
 *   **Transparency:** You should always inform your users that telemetry is active and allow them to opt-out via the `Enabled: false` config.
 
+### Respecting User Privacy with `DO_NOT_TRACK`
+
+All SHM clients (Go, Node.js, and future SDKs) respect the standard `DO_NOT_TRACK` environment variable. When set to `true` or `1`, **all telemetry is completely disabled** — no data is sent to the server.
+
+```bash
+# Disable all telemetry
+export DO_NOT_TRACK=true
+```
+
+This allows end-users to opt-out of telemetry at the system level, regardless of the application's configuration.
+
+### Environment Variables (Client-side)
+
+| Variable | Effect |
+|----------|--------|
+| `DO_NOT_TRACK=true` or `1` | Completely disables telemetry (no network requests) |
+| `SHM_COLLECT_SYSTEM_METRICS=false` or `0` | Disables automatic system metrics collection (OS, CPU, memory) while still sending custom metrics |
+
 ---
 
 ## 🤝 Contributing
