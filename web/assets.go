@@ -4,5 +4,5 @@ package web
 
 import "embed"
 
-//go:embed index.html assets/*
+//go:embed index.html assets/* js/*
 var Assets embed.FS

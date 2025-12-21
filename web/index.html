@@ -27,12 +27,14 @@
     </script>
 
     <!-- External Dependencies -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
     <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Alpine.js App (ES Module) -->
+    <script type="module" src="/js/app.js"></script>
 
     <style>
         [x-cloak] { display: none !important; }
@@ -42,11 +44,11 @@
     </style>
 </head>
 
-<body class="bg-gray-950 text-gray-200 font-sans antialiased overflow-hidden" x-data="dashboard" x-cloak>
+<body class="bg-gray-950 text-gray-200 font-sans antialiased overflow-hidden">
 
-<!-- Sidebar Navigation -->
-<aside class="fixed left-0 top-0 h-full w-64 bg-gray-900 border-r border-gray-800 z-30 flex flex-col">
-    <!-- Sidebar Header -->
+<!-- ===== SIDEBAR ===== -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-gray-900 border-r border-gray-800 z-30 flex flex-col" x-data="sidebar">
+    <!-- Header -->
     <div class="p-4 border-b border-gray-800">
         <div class="flex items-center gap-3 mb-4">
             <img src="/assets/shm-logo.svg" alt="SHM Logo" class="w-8 h-8">
@@ -58,7 +60,7 @@
             <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
             <input
                 type="text"
-                x-model.debounce.300ms="searchQuery"
+                @input="onSearch($event.target.value)"
                 placeholder="Search apps..."
                 class="w-full bg-gray-950 border border-gray-800 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500"
             >
@@ -70,22 +72,22 @@
         <button
             @click="selectApp(null)"
             class="w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center justify-between group"
-            :class="selectedApp === null ? 'bg-primary-500/10 text-primary-400 border border-primary-500/20' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'"
+            :class="isSelected(null) ? 'bg-primary-500/10 text-primary-400 border border-primary-500/20' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'"
         >
             <div class="flex items-center gap-2">
                 <i class="ph-bold ph-stack text-sm"></i>
                 <span class="text-sm font-medium">All Applications</span>
             </div>
-            <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-500 group-hover:bg-gray-700" x-text="stats.total_instances"></span>
+            <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-500 group-hover:bg-gray-700" x-text="$store.dashboard.stats.total_instances"></span>
         </button>
 
         <div class="border-t border-gray-800 my-2"></div>
 
-        <template x-for="app in filteredApplications" :key="app.slug">
+        <template x-for="app in filteredApps" :key="app.slug">
             <button
                 @click="selectApp(app.name)"
                 class="w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center justify-between group"
-                :class="selectedApp === app.name ? 'bg-primary-500/10 text-primary-400 border border-primary-500/20' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'"
+                :class="isSelected(app.name) ? 'bg-primary-500/10 text-primary-400 border border-primary-500/20' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'"
             >
                 <div class="flex items-center gap-2 min-w-0 flex-1">
                     <div class="w-6 h-6 rounded bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0">
@@ -93,11 +95,11 @@
                     </div>
                     <span class="text-sm font-medium truncate" x-text="app.name"></span>
                 </div>
-                <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-500 group-hover:bg-gray-700 flex-shrink-0" x-text="getAppTotalCount(app.name)"></span>
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-500 group-hover:bg-gray-700 flex-shrink-0" x-text="getCount(app.name)"></span>
             </button>
         </template>
 
-        <template x-if="applications.length === 0 && !loading">
+        <template x-if="$store.dashboard.applications.length === 0 && !$store.dashboard.loading">
             <div class="text-center py-8 text-gray-600">
                 <i class="ph-duotone ph-ghost text-2xl mb-2"></i>
                 <p class="text-xs">No applications yet</p>
@@ -105,7 +107,7 @@
         </template>
     </div>
 
-    <!-- Sidebar Footer -->
+    <!-- Footer -->
     <div class="p-4 border-t border-gray-800">
         <div class="flex items-center justify-between text-xs text-gray-500">
             <div class="flex items-center gap-2">
@@ -113,32 +115,32 @@
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span x-text="stats.active_instances + ' active'"></span>
+                <span x-text="$store.dashboard.stats.active_instances + ' active'"></span>
             </div>
-            <button @click="fetchInitialData" class="p-1 text-gray-500 hover:text-white hover:bg-gray-800 rounded transition-colors" :disabled="loading">
-                <i class="ph-bold ph-arrows-clockwise text-sm" :class="{ 'animate-spin': loading }"></i>
+            <button @click="refresh()" class="p-1 text-gray-500 hover:text-white hover:bg-gray-800 rounded transition-colors" :disabled="$store.dashboard.loading">
+                <i class="ph-bold ph-arrows-clockwise text-sm" :class="{ 'animate-spin': $store.dashboard.loading }"></i>
             </button>
         </div>
     </div>
 </aside>
 
-<!-- Top Navigation -->
-<nav class="fixed top-0 left-64 right-0 z-40 bg-gray-950/80 backdrop-blur-md border-b border-gray-800">
+<!-- ===== TOP NAVBAR ===== -->
+<nav class="fixed top-0 left-64 right-0 z-40 bg-gray-950/80 backdrop-blur-md border-b border-gray-800" x-data="navbar">
     <div class="px-6">
         <div class="flex h-16 items-center justify-between">
             <div class="flex items-center gap-3">
-                <h1 class="text-xl font-bold text-white" x-text="selectedApp || 'All Applications'"></h1>
-                <span class="text-sm text-gray-500" x-text="`(${selectedApp ? getAppTotalCount(selectedApp) : stats.total_instances} instances)`"></span>
+                <h1 class="text-xl font-bold text-white" x-text="title"></h1>
+                <span class="text-sm text-gray-500" x-text="countText"></span>
             </div>
             <div class="flex items-center gap-2">
                 <div class="relative flex items-center">
                     <div class="absolute left-3 w-4 h-4 flex items-center justify-center text-gray-500">
-                        <i x-show="!searchingInstances" class="ph-bold ph-magnifying-glass text-sm"></i>
-                        <i x-show="searchingInstances" class="ph-bold ph-spinner animate-spin text-sm"></i>
+                        <i x-show="!isSearching" class="ph-bold ph-magnifying-glass text-sm"></i>
+                        <i x-show="isSearching" class="ph-bold ph-spinner animate-spin text-sm"></i>
                     </div>
                     <input
                         type="text"
-                        x-model="instanceSearchQuery"
+                        x-model="searchQuery"
                         placeholder="Search instances..."
                         class="bg-gray-900 border border-gray-800 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 w-64"
                     >
@@ -148,11 +150,11 @@
     </div>
 </nav>
 
-<!-- Main Content -->
-<main class="fixed top-16 left-64 right-0 bottom-0 overflow-y-auto" @scroll.passive="handleScroll">
+<!-- ===== MAIN CONTENT ===== -->
+<main class="fixed top-16 left-64 right-0 bottom-0 overflow-y-auto" x-data="mainContent" @scroll.passive="handleScroll">
     <div class="p-6">
         <template x-for="(group, appName) in displayedGroups" :key="appName">
-            <section class="mb-12 animate-fade-in">
+            <section class="mb-12 animate-fade-in" x-data="appSection">
                 <!-- App Header -->
                 <div class="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
                     <div class="flex items-center gap-4">
@@ -204,14 +206,14 @@
                         <button
                             @click="toggleMetricChart(appName, key)"
                             class="bg-gray-900/50 hover:bg-gray-800 transition-all rounded-lg p-3 border text-left"
-                            :class="selectedMetric[appName] === key ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-gray-800'"
+                            :class="isMetricSelected(appName, key) ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-gray-800'"
                         >
                             <div class="flex items-start justify-between gap-2">
                                 <div class="flex-1 min-w-0">
                                     <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest truncate mb-1" x-text="formatKey(key)"></p>
                                     <p class="text-xl font-bold text-white font-mono" x-text="formatNumber(group.sums[key])"></p>
                                 </div>
-                                <i class="ph-bold ph-chart-line text-sm flex-shrink-0" :class="selectedMetric[appName] === key ? 'text-primary-500' : 'text-gray-600'"></i>
+                                <i class="ph-bold ph-chart-line text-sm flex-shrink-0" :class="isMetricSelected(appName, key) ? 'text-primary-500' : 'text-gray-600'"></i>
                             </div>
                         </button>
                     </template>
@@ -219,7 +221,7 @@
 
                 <!-- Chart Panel -->
                 <div
-                    x-show="selectedMetric[appName]"
+                    x-show="getSelectedMetric(appName)"
                     x-transition:enter="transition ease-out duration-200"
                     x-transition:enter-start="opacity-0 -translate-y-2"
                     x-transition:enter-end="opacity-100 translate-y-0"
@@ -228,53 +230,53 @@
                     x-transition:leave-end="opacity-0 -translate-y-2"
                     class="mb-6 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden"
                 >
-                        <!-- Chart Header -->
-                        <div class="flex items-center justify-between border-b border-gray-800 px-6 py-4">
-                            <div class="flex items-center gap-3">
-                                <i class="ph-bold ph-chart-line text-primary-500 text-lg"></i>
-                                <div>
-                                    <h3 class="text-sm font-bold text-white" x-text="formatKey(selectedMetric[appName])"></h3>
-                                    <p class="text-xs text-gray-500">Time series evolution</p>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <template x-for="period in periods" :key="period">
-                                    <button
-                                        @click="selectPeriod(appName, period)"
-                                        class="px-3 py-1 rounded text-xs font-medium transition-colors"
-                                        :class="(chartPeriods[appName] || '24h') === period ? 'bg-primary-500 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'"
-                                        x-text="period"
-                                    ></button>
-                                </template>
-                                <button @click="closeChart(appName)" class="ml-2 p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded transition-colors">
-                                    <i class="ph-bold ph-x text-sm"></i>
-                                </button>
+                    <!-- Chart Header -->
+                    <div class="flex items-center justify-between border-b border-gray-800 px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <i class="ph-bold ph-chart-line text-primary-500 text-lg"></i>
+                            <div>
+                                <h3 class="text-sm font-bold text-white" x-text="formatKey(getSelectedMetric(appName))"></h3>
+                                <p class="text-xs text-gray-500">Time series evolution</p>
                             </div>
                         </div>
-
-                        <!-- Chart Content -->
-                        <div class="p-6 relative">
-                            <div x-show="chartsLoading[appName]" class="absolute inset-0 flex items-center justify-center bg-gray-900/80 z-10">
-                                <div class="text-center">
-                                    <i class="ph-bold ph-circle-notch animate-spin text-3xl text-gray-500"></i>
-                                    <p class="text-sm text-gray-500 mt-3">Loading chart data...</p>
-                                </div>
-                            </div>
-                            <template x-if="chartsNoData[appName] && !chartsLoading[appName]">
-                                <div class="flex items-center justify-center py-12 text-gray-500">
-                                    <div class="text-center">
-                                        <i class="ph-bold ph-info text-2xl mb-2"></i>
-                                        <p class="text-sm">Pas de données pour cette métrique.</p>
-                                    </div>
-                                </div>
+                        <div class="flex items-center gap-2">
+                            <template x-for="period in periods" :key="period">
+                                <button
+                                    @click="selectPeriod(appName, period)"
+                                    class="px-3 py-1 rounded text-xs font-medium transition-colors"
+                                    :class="getPeriod(appName) === period ? 'bg-primary-500 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'"
+                                    x-text="period"
+                                ></button>
                             </template>
-                            <canvas
-                                :id="_canvasId(appName)"
-                                x-show="!chartsNoData[appName]"
-                                class="w-full"
-                                style="max-height: 300px;"
-                            ></canvas>
+                            <button @click="closeChart(appName)" class="ml-2 p-1.5 text-gray-500 hover:text-white hover:bg-gray-800 rounded transition-colors">
+                                <i class="ph-bold ph-x text-sm"></i>
+                            </button>
                         </div>
+                    </div>
+
+                    <!-- Chart Content -->
+                    <div class="p-6 relative">
+                        <div x-show="isChartLoading(appName)" class="absolute inset-0 flex items-center justify-center bg-gray-900/80 z-10">
+                            <div class="text-center">
+                                <i class="ph-bold ph-circle-notch animate-spin text-3xl text-gray-500"></i>
+                                <p class="text-sm text-gray-500 mt-3">Loading chart data...</p>
+                            </div>
+                        </div>
+                        <template x-if="hasNoData(appName) && !isChartLoading(appName)">
+                            <div class="flex items-center justify-center py-12 text-gray-500">
+                                <div class="text-center">
+                                    <i class="ph-bold ph-info text-2xl mb-2"></i>
+                                    <p class="text-sm">No data for this metric.</p>
+                                </div>
+                            </div>
+                        </template>
+                        <canvas
+                            :id="canvasId(appName)"
+                            x-show="!hasNoData(appName)"
+                            class="w-full"
+                            style="max-height: 300px;"
+                        ></canvas>
+                    </div>
                 </div>
 
                 <!-- Instances Table -->
@@ -339,7 +341,7 @@
             </section>
         </template>
 
-        <template x-if="Object.keys(displayedGroups).length === 0 && !loading">
+        <template x-if="isEmpty">
             <div class="flex flex-col items-center justify-center py-20 text-gray-600">
                 <i class="ph-duotone ph-ghost text-4xl mb-4"></i>
                 <p>No instances found</p>
@@ -348,14 +350,14 @@
     </div>
 </main>
 
-<!-- Instance Drawer -->
+<!-- ===== INSTANCE DRAWER ===== -->
 <template x-teleport="body">
-    <div x-show="selectedInstance" x-cloak class="fixed inset-0 z-50 flex justify-end" @keydown.escape.window="selectedInstance = null">
-        <div @click="selectedInstance = null" class="absolute inset-0 bg-black/70 backdrop-blur-[2px] transition-opacity" x-show="selectedInstance" x-transition.opacity></div>
+    <div x-data="drawer" x-show="isOpen" x-cloak class="fixed inset-0 z-50 flex justify-end" @keydown.escape.window="close()">
+        <div @click="close()" class="absolute inset-0 bg-black/70 backdrop-blur-[2px] transition-opacity" x-show="isOpen" x-transition.opacity></div>
 
         <div
             class="relative w-full max-w-lg bg-gray-950 border-l border-gray-800 h-full shadow-2xl flex flex-col"
-            x-show="selectedInstance"
+            x-show="isOpen"
             x-transition:enter="transition ease-out duration-300"
             x-transition:enter-start="translate-x-full"
             x-transition:enter-end="translate-x-0"
@@ -363,22 +365,22 @@
             x-transition:leave-start="translate-x-0"
             x-transition:leave-end="translate-x-full"
         >
-            <template x-if="selectedInstance">
+            <template x-if="instance">
                 <div class="flex flex-col h-full">
                     <!-- Drawer Header -->
                     <div class="px-6 py-5 border-b border-gray-800 bg-gray-900 flex justify-between items-start">
                         <div>
                             <div class="flex items-center gap-2 mb-1">
-                                <h3 class="text-xl font-bold text-white font-mono tracking-tight" x-text="selectedInstance.instance_id"></h3>
+                                <h3 class="text-xl font-bold text-white font-mono tracking-tight" x-text="instance.instance_id"></h3>
                                 <span
                                     class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border"
-                                    :class="selectedInstance.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'"
-                                    x-text="selectedInstance.status"
+                                    :class="instance.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'"
+                                    x-text="instance.status"
                                 ></span>
                             </div>
-                            <p class="text-sm text-gray-400" x-text="`${selectedInstance.app_name} v${selectedInstance.app_version}`"></p>
+                            <p class="text-sm text-gray-400" x-text="`${instance.app_name} v${instance.app_version}`"></p>
                         </div>
-                        <button @click="selectedInstance = null" class="text-gray-500 hover:text-white bg-gray-800 hover:bg-gray-700 p-2 rounded-lg transition">
+                        <button @click="close()" class="text-gray-500 hover:text-white bg-gray-800 hover:bg-gray-700 p-2 rounded-lg transition">
                             <i class="ph-bold ph-x text-lg"></i>
                         </button>
                     </div>
@@ -391,18 +393,18 @@
                                 <i class="ph-bold ph-cpu"></i> System Health & Resources
                             </h4>
                             <div class="grid grid-cols-2 gap-3">
-                                <template x-for="rKey in currentResourceKeys" :key="rKey">
-                                    <template x-if="selectedInstance.metrics?.[rKey] !== undefined">
+                                <template x-for="rKey in resourceKeys" :key="rKey">
+                                    <template x-if="instance.metrics?.[rKey] !== undefined">
                                         <div class="bg-gray-900 border border-gray-800 p-3 rounded-lg flex flex-col">
                                             <span class="text-[10px] text-gray-500 font-bold uppercase mb-1" x-text="formatResourceKey(rKey)"></span>
                                             <div class="flex items-end justify-between">
-                                                <span class="text-lg font-mono text-gray-200" x-text="formatNumber(selectedInstance.metrics[rKey])"></span>
+                                                <span class="text-lg font-mono text-gray-200" x-text="formatNumber(instance.metrics[rKey])"></span>
                                                 <i class="ph-fill text-gray-700 text-lg" :class="getResourceIcon(rKey)"></i>
                                             </div>
                                         </div>
                                     </template>
                                 </template>
-                                <template x-if="!currentResourceKeys?.length">
+                                <template x-if="!resourceKeys?.length">
                                     <div class="col-span-2 text-xs text-gray-600 italic">No system metrics available.</div>
                                 </template>
                             </div>
@@ -416,13 +418,13 @@
                             <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-3 text-sm">
                                 <div class="flex justify-between border-b border-gray-800 pb-2">
                                     <span class="text-gray-500">Mode</span>
-                                    <span class="text-gray-300" x-text="selectedInstance.deployment_mode"></span>
+                                    <span class="text-gray-300" x-text="instance.deployment_mode"></span>
                                 </div>
                                 <div class="flex justify-between border-b border-gray-800 pb-2">
                                     <span class="text-gray-500">Environment</span>
-                                    <span class="text-gray-300" x-text="selectedInstance.environment"></span>
+                                    <span class="text-gray-300" x-text="instance.environment"></span>
                                 </div>
-                                <template x-for="(val, key) in selectedInstance.metrics" :key="key">
+                                <template x-for="(val, key) in instance.metrics" :key="key">
                                     <template x-if="typeof val === 'string'">
                                         <div class="flex justify-between border-b border-gray-800 last:border-0 pb-2 last:pb-0">
                                             <span class="text-gray-500" x-text="formatKey(key)"></span>
@@ -441,7 +443,7 @@
                             <div class="bg-gray-950 rounded border border-gray-800 font-mono text-[10px] text-gray-400 overflow-hidden">
                                 <table class="w-full">
                                     <tbody class="divide-y divide-gray-800">
-                                        <template x-for="(val, key) in selectedInstance.metrics" :key="key">
+                                        <template x-for="(val, key) in instance.metrics" :key="key">
                                             <tr class="hover:bg-gray-900/50">
                                                 <td class="py-2 px-3 text-gray-500 border-r border-gray-800 w-1/3" x-text="key"></td>
                                                 <td class="py-2 px-3 break-all text-gray-300" x-text="val"></td>
@@ -458,634 +460,5 @@
     </div>
 </template>
 
-<script>
-document.addEventListener('alpine:init', () => {
-    Alpine.data('dashboard', () => ({
-        // State
-        loading: false,
-        stats: { total_instances: 0, active_instances: 0 },
-        applications: [],  // From applications table
-        rawInstances: [],
-        groupedInstances: {},
-        displayedGroups: {},
-        filteredInstances: [],
-        selectedInstance: null,
-        currentResourceKeys: [],
-        selectedApp: null,
-        searchQuery: '',
-        instanceSearchQuery: '',
-        selectedMetric: {},
-        chartPeriods: {},
-        chartsLoading: {},
-        chartDataCache: {},
-        chartInstances: {},
-        chartRenderTokens: {},
-        renderRetryTimers: {},
-        chartsNoData: {},
-
-        // Constants
-        periods: ['24h', '7d', '30d', '3m', '1y', 'all'],
-        instancesPerPage: 25,       // For single app view lazy loading
-        instancesPreviewCount: 5,   // For "All Apps" view
-        apiPageSize: 50,
-        loadedPages: {},
-        apiOffset: 0,
-        hasMoreFromApi: true,
-        loadingMore: false,
-        searchingInstances: false,
-        refreshInterval: null,
-
-        // Lifecycle
-        init() {
-            this.fetchInitialData();
-            // No auto-refresh - user can manually refresh with the button
-
-            // Watch for app search (sidebar) - local filtering only
-            this.$watch('searchQuery', () => this.filterInstances());
-
-            // Watch for instance search - API call with debounce
-            this.$watch('instanceSearchQuery', () => {
-                clearTimeout(this._searchDebounce);
-                this.searchingInstances = true;
-                this._searchDebounce = setTimeout(() => this.searchInstances(), 400);
-            });
-        },
-        _searchDebounce: null,
-
-        destroy() {
-            if (this.refreshInterval) {
-                clearInterval(this.refreshInterval);
-            }
-            // Destroy all chart instances
-            Object.values(this.chartInstances).forEach(chart => chart?.destroy());
-        },
-
-        // Actions
-        async searchInstances() {
-            await this.fetchInstances();
-            this.searchingInstances = false;
-        },
-
-        selectApp(appName) {
-            this.selectedApp = appName;
-            // Refetch instances with new app filter
-            this.fetchInstances();
-        },
-
-        async toggleMetricChart(appName, metricKey) {
-            if (this.selectedMetric[appName] === metricKey) {
-                this.closeChart(appName);
-                return;
-            }
-            // Destroy old chart if switching to a different metric
-            this.chartInstances[appName]?.destroy();
-            delete this.chartInstances[appName];
-            this._invalidateRender(appName);
-            this.selectedMetric[appName] = metricKey;
-            this.chartsNoData[appName] = false;
-            await this.loadChartData(appName, metricKey);
-        },
-
-        closeChart(appName) {
-            this.chartInstances[appName]?.destroy();
-            delete this.chartInstances[appName];
-            this.selectedMetric[appName] = null;
-            this.chartsNoData[appName] = false;
-            this._invalidateRender(appName);
-        },
-
-        async selectPeriod(appName, period) {
-            this.chartPeriods[appName] = period;
-            const metricKey = this.selectedMetric[appName];
-            if (metricKey) {
-                // Clear cache for this period
-                delete this.chartDataCache[`${appName}-${period}`];
-                this.chartsNoData[appName] = false;
-                this._invalidateRender(appName);
-                await this.loadChartData(appName, metricKey);
-            }
-        },
-
-        async loadChartData(appName, metricKey) {
-            this.chartsLoading[appName] = true;
-            this.chartsNoData[appName] = false;
-            try {
-                const period = this.chartPeriods[appName] || '24h';
-                const cacheKey = `${appName}-${period}`;
-
-                if (!this.chartDataCache[cacheKey]) {
-                    const response = await fetch(`/api/v1/admin/metrics/${encodeURIComponent(appName)}?period=${period}`);
-                    this.chartDataCache[cacheKey] = await response.json();
-                }
-
-                // Set loading to false and render the chart
-                this.chartsLoading[appName] = false;
-                const token = this.chartRenderTokens[appName] || 0;
-                this.renderChart(appName, metricKey, this.chartDataCache[cacheKey], 0, token);
-            } catch (e) {
-                console.error('Failed to load chart data:', e);
-                this.chartsLoading[appName] = false;
-            }
-        },
-
-        renderChart(appName, metricKey, data, attempt = 0, token = 0) {
-            const canvasId = this._canvasId(appName);
-
-            // Ensure Alpine has applied x-show and element is visible with size
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    // Abort if render token is stale or metric changed/closed
-                    if ((this.chartRenderTokens[appName] || 0) !== token) return;
-                    if (this.selectedMetric[appName] !== metricKey) return;
-                    const canvas = document.getElementById(canvasId);
-                    if (!canvas) {
-                        // Retry once more after a short delay
-                        this._scheduleRenderRetry(appName, () => this.renderChart(appName, metricKey, data, attempt + 1, token), 100);
-                        return;
-                    }
-                    if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) {
-                        if (attempt < 10) {
-                            this._scheduleRenderRetry(appName, () => this.renderChart(appName, metricKey, data, attempt + 1, token), 100);
-                        }
-                        return;
-                    }
-                    const rect = canvas.getBoundingClientRect();
-                    const hasSize = rect.width > 0 && rect.height >= 0; // height may be 0 before chart paints
-                    if (!hasSize && attempt < 10) {
-                        // Wait until layout gives the canvas a width
-                        this._scheduleRenderRetry(appName, () => this.renderChart(appName, metricKey, data, attempt + 1, token), 50);
-                        return;
-                    }
-                    if (hasSize) {
-                        this._doRenderChart(appName, canvas, metricKey, data);
-                    }
-                });
-            });
-        },
-
-        _doRenderChart(appName, canvas, metricKey, data) {
-            // Destroy existing chart
-            this.chartInstances[appName]?.destroy();
-
-            const timestamps = data.timestamps || [];
-            const values = data.metrics?.[metricKey] || [];
-            if (!values.length) {
-                console.warn('No data for metric:', metricKey);
-                this.chartsNoData[appName] = true;
-                return;
-            }
-            // Ensure canvas is still valid
-            if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) {
-                return;
-            }
-            this._createChart(appName, canvas, metricKey, timestamps, values);
-        },
-
-        _createChart(appName, canvas, metricKey, timestamps, values) {
-            try {
-                const ctx = canvas.getContext && canvas.getContext('2d');
-                if (!ctx) {
-                    console.warn('Canvas context unavailable for', appName);
-                    return;
-                }
-                this.chartInstances[appName] = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                    labels: timestamps.map(ts => new Date(ts).toLocaleString('en-US', {
-                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                    })),
-                    datasets: [{
-                        label: this.formatKey(metricKey),
-                        data: values,
-                        borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 3,
-                        pointHoverRadius: 5,
-                        pointBackgroundColor: '#6366f1',
-                        pointBorderColor: '#1a202c',
-                        pointBorderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 3,
-                    animation: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: 'rgba(17, 24, 39, 0.95)',
-                            titleColor: '#f3f4f6',
-                            bodyColor: '#d1d5db',
-                            borderColor: '#374151',
-                            borderWidth: 1,
-                            padding: 12,
-                            displayColors: false,
-                            callbacks: { label: ctx => this.formatNumber(ctx.parsed.y) }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: { color: '#1f2937', drawBorder: false },
-                            ticks: { color: '#6b7280', maxRotation: 45, minRotation: 45, font: { size: 10 } }
-                        },
-                        y: {
-                            grid: { color: '#1f2937', drawBorder: false },
-                            ticks: { color: '#6b7280', font: { size: 10 }, callback: v => this.formatNumber(v) }
-                        }
-                    }
-                }
-                });
-
-                // Force a resize on next frame to ensure correct sizing
-                requestAnimationFrame(() => {
-                    this.chartInstances[appName]?.resize();
-                });
-            } catch (err) {
-                console.error('Chart render failed:', err);
-                try { this.chartInstances[appName]?.destroy(); } catch (_) {}
-                delete this.chartInstances[appName];
-            }
-        },
-
-        _scheduleRenderRetry(appName, fn, delay) {
-            clearTimeout(this.renderRetryTimers[appName]);
-            this.renderRetryTimers[appName] = setTimeout(fn, delay);
-        },
-        _invalidateRender(appName) {
-            this.chartRenderTokens[appName] = (this.chartRenderTokens[appName] || 0) + 1;
-            clearTimeout(this.renderRetryTimers[appName]);
-            delete this.renderRetryTimers[appName];
-        },
-
-        // Utils for stable, unique canvas IDs per app
-        _hash(str) {
-            let h = 0;
-            const s = String(str);
-            for (let i = 0; i < s.length; i++) {
-                h = Math.imul(31, h) + s.charCodeAt(i) | 0;
-            }
-            return Math.abs(h).toString(36);
-        },
-        _slug(str) {
-            return String(str)
-                .toLowerCase()
-                .trim()
-                .replace(/[^a-z0-9_-]+/g, '-')
-                .replace(/^-+|-+$/g, '');
-        },
-        _canvasId(appName) {
-            const slug = this._slug(appName);
-            const short = this._hash(appName).slice(0, 6);
-            return `chart-${slug}-${short}`;
-        },
-
-        handleScroll(event) {
-            const el = event.target;
-            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
-                this.loadMoreInstances();
-            }
-        },
-
-        async loadMoreInstances() {
-            // Only lazy load in single app view
-            if (this.selectedApp === null) return;
-
-            const appName = this.selectedApp;
-            const group = this.displayedGroups[appName];
-            if (!group || !group.hasMore) return;
-
-            // First, check if we can show more from already loaded data
-            const currentPage = this.loadedPages[appName] || 0;
-            const nextPage = currentPage + 1;
-            const startIdx = (nextPage) * this.instancesPerPage;
-            const endIdx = startIdx + this.instancesPerPage;
-
-            const sourceGroup = this.groupedInstances[appName];
-            const newInstances = sourceGroup.instances.slice(startIdx, endIdx);
-
-            if (newInstances.length) {
-                group.displayedInstances = [...group.displayedInstances, ...newInstances];
-                this.loadedPages[appName] = nextPage;
-                const hasMoreLoaded = endIdx < sourceGroup.instances.length;
-                group.hasMore = hasMoreLoaded || this.hasMoreFromApi;
-            } else if (this.hasMoreFromApi && !this.loadingMore) {
-                // Need more data from API
-                await this.fetchMoreFromApi();
-            }
-        },
-
-        async fetchMoreFromApi() {
-            if (this.loadingMore || !this.hasMoreFromApi) return;
-
-            this.loadingMore = true;
-            try {
-                const response = await fetch(this.buildInstancesUrl(this.apiOffset));
-                const newInstances = await response.json();
-
-                if (newInstances.length < this.apiPageSize) {
-                    this.hasMoreFromApi = false;
-                }
-
-                if (newInstances.length > 0) {
-                    this.apiOffset += newInstances.length;
-                    this.rawInstances = [...this.rawInstances, ...newInstances];
-                    this.processData();
-                    this.filterInstances();
-                }
-            } catch (e) {
-                console.error('Failed to fetch more instances:', e);
-            } finally {
-                this.loadingMore = false;
-            }
-        },
-
-        filterInstances() {
-            this.loadedPages = {};
-            let groups = this.groupedInstances;
-            const isSingleAppView = this.selectedApp !== null;
-
-            if (isSingleAppView) {
-                groups = { [this.selectedApp]: this.groupedInstances[this.selectedApp] };
-            }
-
-            // Sidebar app search (local filter)
-            if (this.searchQuery.trim()) {
-                const query = this.searchQuery.toLowerCase();
-                groups = Object.fromEntries(
-                    Object.entries(this.groupedInstances).filter(([name]) => name.toLowerCase().includes(query))
-                );
-            }
-
-            this.displayedGroups = {};
-            this.filteredInstances = [];
-
-            for (const [appName, group] of Object.entries(groups)) {
-                if (!group) continue;
-                const instances = group.instances;
-
-                // Instance search is now done via API, no local filtering needed
-
-                if (instances.length) {
-                    this.filteredInstances.push(...instances);
-
-                    if (isSingleAppView) {
-                        // Single app view: lazy loading with pagination
-                        const hasMoreLoaded = instances.length > this.instancesPerPage;
-                        const hasMoreFromApi = this.hasMoreFromApi;
-                        this.displayedGroups[appName] = {
-                            ...group,
-                            instances,
-                            displayedInstances: instances.slice(0, this.instancesPerPage),
-                            hasMore: hasMoreLoaded || hasMoreFromApi
-                        };
-                        this.loadedPages[appName] = 0;
-                    } else {
-                        // All apps view: show only preview (5 instances), no lazy loading
-                        this.displayedGroups[appName] = {
-                            ...group,
-                            instances,
-                            displayedInstances: instances.slice(0, this.instancesPreviewCount),
-                            hasMore: false  // No lazy loading in all apps view
-                        };
-                    }
-                }
-            }
-        },
-
-        openDrawer(inst, resourceKeys) {
-            this.selectedInstance = inst;
-            this.currentResourceKeys = resourceKeys || [];
-        },
-
-        buildInstancesUrl(offset = 0) {
-            const params = new URLSearchParams();
-            params.set('offset', offset);
-            params.set('limit', this.apiPageSize);
-
-            // Add app filter if in single app view
-            if (this.selectedApp) {
-                params.set('app', this.selectedApp);
-            }
-
-            // Add search filter
-            if (this.instanceSearchQuery.trim()) {
-                params.set('q', this.instanceSearchQuery.trim());
-            }
-
-            return `/api/v1/admin/instances?${params.toString()}`;
-        },
-
-        // Initial load - fetches everything (stats, apps, instances)
-        async fetchInitialData() {
-            this.loading = true;
-            this.apiOffset = 0;
-            this.hasMoreFromApi = true;
-            this.rawInstances = [];
-
-            try {
-                const [resStats, resApps, resList] = await Promise.all([
-                    fetch('/api/v1/admin/stats'),
-                    fetch('/api/v1/admin/applications'),
-                    fetch(this.buildInstancesUrl(0))
-                ]);
-                this.stats = await resStats.json();
-                this.applications = await resApps.json();
-                const instances = await resList.json();
-                this.rawInstances = instances;
-                this.apiOffset = instances.length;
-                this.hasMoreFromApi = instances.length >= this.apiPageSize;
-                this.processData();
-                this.filterInstances();
-            } catch (e) {
-                console.error('Failed to fetch initial data:', e);
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        // Fetch only instances (for search/filter operations)
-        async fetchInstances() {
-            this.loading = true;
-            this.apiOffset = 0;
-            this.hasMoreFromApi = true;
-            this.rawInstances = [];
-
-            try {
-                const response = await fetch(this.buildInstancesUrl(0));
-                const instances = await response.json();
-                this.rawInstances = instances;
-                this.apiOffset = instances.length;
-                this.hasMoreFromApi = instances.length >= this.apiPageSize;
-                this.processData();
-                this.filterInstances();
-            } catch (e) {
-                console.error('Failed to fetch instances:', e);
-            } finally {
-                this.loading = false;
-            }
-        },
-
-        processData() {
-            const groups = {};
-
-            // Build lookup maps from applications for GitHub info
-            // Key by both slug and name for fallback matching
-            const appInfoBySlug = {};
-            const appInfoByName = {};
-            for (const app of this.applications) {
-                const info = {
-                    slug: app.slug,
-                    githubUrl: app.github_url || null,
-                    githubStars: app.stars || 0
-                };
-                appInfoBySlug[app.slug] = info;
-                appInfoByName[app.name] = info;
-            }
-
-            for (const inst of this.rawInstances) {
-                const appName = inst.app_name || 'Unknown App';
-
-                if (!groups[appName]) {
-                    // Get GitHub info: try app_slug first, then fallback to app_name
-                    const appInfo = appInfoBySlug[inst.app_slug] || appInfoByName[appName] || {};
-                    groups[appName] = {
-                        instances: [],
-                        businessKeys: new Set(),
-                        resourceKeys: new Set(),
-                        stringKeys: new Set(),
-                        sums: {},
-                        osCounts: {},
-                        lastSeenGlobal: null,
-                        githubUrl: appInfo.githubUrl || null,
-                        githubStars: appInfo.githubStars || 0,
-                        appSlug: inst.app_slug || appInfo.slug || ''
-                    };
-                }
-
-                const group = groups[appName];
-                const lastSeen = new Date(inst.last_seen_at);
-
-                if (!group.lastSeenGlobal || lastSeen > group.lastSeenGlobal) {
-                    group.lastSeenGlobal = lastSeen;
-                }
-
-                group.instances.push(inst);
-
-                if (inst.metrics) {
-                    if (inst.metrics.sys_os) {
-                        const os = inst.metrics.sys_os;
-                        group.osCounts[os] = (group.osCounts[os] || 0) + 1;
-                    }
-
-                    for (const [key, val] of Object.entries(inst.metrics)) {
-                        if (typeof val === 'number') {
-                            const isResource = key.startsWith('sys_') || key.startsWith('app_') ||
-                                ['cpu', 'mem', 'uptime', 'goroutines'].some(k => key.includes(k));
-
-                            if (isResource) {
-                                group.resourceKeys.add(key);
-                            } else {
-                                group.businessKeys.add(key);
-                                group.sums[key] = (group.sums[key] || 0) + val;
-                            }
-                        } else if (typeof val === 'string' && val.length < 25) {
-                            group.stringKeys.add(key);
-                        }
-                    }
-                }
-            }
-
-            for (const group of Object.values(groups)) {
-                group.businessKeys = [...group.businessKeys].sort();
-                group.resourceKeys = [...group.resourceKeys].sort();
-                group.stringKeys = [...group.stringKeys].sort();
-            }
-
-            this.groupedInstances = groups;
-        },
-
-        // Formatters
-        formatNumber(num) {
-            if (num == null) return '-';
-            if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
-            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'k';
-            return String(num);
-        },
-
-        getAppTotalCount(appName) {
-            // Use real total from stats API if available
-            if (this.stats.per_app_counts && this.stats.per_app_counts[appName] !== undefined) {
-                return this.stats.per_app_counts[appName];
-            }
-            // Fallback to loaded instances count
-            const group = this.groupedInstances[appName];
-            return group ? group.instances.length : 0;
-        },
-
-        get filteredApplications() {
-            if (!this.searchQuery.trim()) {
-                return this.applications;
-            }
-            const query = this.searchQuery.toLowerCase();
-            return this.applications.filter(app =>
-                app.name.toLowerCase().includes(query)
-            );
-        },
-
-        formatKey(key) {
-            if (key === undefined || key === null) return '';
-            return String(key).replace(/_total$/, '').replace(/_/g, ' ').trim();
-        },
-
-        formatResourceKey(key) {
-            if (key === undefined || key === null) return '';
-            return String(key).replace(/^(sys_|app_)/, '').replace(/_/g, ' ');
-        },
-
-        timeAgo(dateInput) {
-            if (!dateInput) return '-';
-            const seconds = Math.floor((Date.now() - new Date(dateInput)) / 1000);
-            if (seconds < 60) return 'Just now';
-            const minutes = Math.floor(seconds / 60);
-            if (minutes < 60) return `${minutes}m ago`;
-            const hours = Math.floor(minutes / 60);
-            if (hours < 24) return `${hours}h ago`;
-            return `${Math.floor(hours / 24)}d ago`;
-        },
-
-        // Icon helpers
-        getResourceIcon(key) {
-            if (key.includes('mem')) return 'ph-memory';
-            if (key.includes('cpu')) return 'ph-cpu';
-            if (key.includes('uptime')) return 'ph-clock';
-            if (key.includes('goroutines')) return 'ph-arrows-split';
-            return 'ph-activity';
-        },
-
-        getIconForTag(val) {
-            const v = String(val).toLowerCase();
-            if (v.includes('linux')) return 'ph-linux-logo';
-            if (v.includes('windows')) return 'ph-windows-logo';
-            if (v.includes('darwin') || v.includes('apple')) return 'ph-apple-logo';
-            if (v.includes('docker')) return 'ph-container';
-            return 'ph-tag';
-        },
-
-        getOSIcon(os) {
-            const v = String(os).toLowerCase();
-            if (v.includes('linux')) return 'ph-linux-logo';
-            if (v.includes('windows')) return 'ph-windows-logo';
-            if (v.includes('darwin') || v.includes('macos')) return 'ph-apple-logo';
-            if (v.includes('bsd')) return 'ph-ghost';
-            return 'ph-desktop';
-        }
-    }));
-});
-</script>
 </body>
 </html>
