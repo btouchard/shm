@@ -1,6 +1,6 @@
 {
   "name": "@btouchard/shm-sdk",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Privacy-first telemetry SDK for self-hosted software",
   "type": "module",
   "main": "./dist/index.js",
