@@ -2,80 +2,54 @@
 
 import { fetchStats, fetchApplications, fetchInstances } from '../utils/api.js';
 
-/**
- * Main dashboard store - manages global application state
- * Access via Alpine.$store('dashboard') or this.$store.dashboard in components
- */
 export default {
-    // Loading states
     loading: false,
     loadingMore: false,
     searchingInstances: false,
 
-    // Core data
     stats: { total_instances: 0, active_instances: 0, per_app_counts: {} },
     applications: [],
     rawInstances: [],
     groupedInstances: {},
     refreshKey: 0,
 
-    // Selection state
     selectedApp: null,
     selectedInstance: null,
     currentResourceKeys: [],
     editingApp: null,
 
-    // Search state
     searchQuery: '',
     instanceSearchQuery: '',
 
-    // Pagination
     apiOffset: 0,
     hasMoreFromApi: true,
     loadedPages: {},
 
-    // Constants
     API_PAGE_SIZE: 50,
     INSTANCES_PER_PAGE: 25,
     INSTANCES_PREVIEW_COUNT: 5,
 
-    // Debounce timer
     _searchDebounce: null,
 
-    /**
-     * Initialize the store - fetch initial data
-     */
     async init() {
         await this.fetchInitialData();
     },
 
-    /**
-     * Select an application (or null for all apps view)
-     */
     selectApp(appName) {
         this.selectedApp = appName;
         this.fetchInstancesOnly();
     },
 
-    /**
-     * Open the instance detail drawer
-     */
     openDrawer(instance, resourceKeys) {
         this.selectedInstance = instance;
         this.currentResourceKeys = resourceKeys || [];
     },
 
-    /**
-     * Close the instance detail drawer
-     */
     closeDrawer() {
         this.selectedInstance = null;
         this.currentResourceKeys = [];
     },
 
-    /**
-     * Open the application edit modal
-     */
     openEditModal(appSlug) {
         const app = this.applications.find(a => a.slug === appSlug);
         if (app) {
@@ -83,16 +57,10 @@ export default {
         }
     },
 
-    /**
-     * Close the application edit modal
-     */
     closeEditModal() {
         this.editingApp = null;
     },
 
-    /**
-     * Handle instance search with debounce
-     */
     handleInstanceSearch() {
         clearTimeout(this._searchDebounce);
         this.searchingInstances = true;
@@ -103,9 +71,6 @@ export default {
         }, 400);
     },
 
-    /**
-     * Fetch all initial data (stats, apps, instances)
-     */
     async fetchInitialData() {
         this.loading = true;
         this.apiOffset = 0;
@@ -139,9 +104,6 @@ export default {
         }
     },
 
-    /**
-     * Fetch only instances (for search/filter operations)
-     */
     async fetchInstancesOnly() {
         this.loading = true;
         this.apiOffset = 0;
@@ -168,9 +130,6 @@ export default {
         }
     },
 
-    /**
-     * Fetch more instances from API (pagination)
-     */
     async fetchMoreFromApi() {
         if (this.loadingMore || !this.hasMoreFromApi) return;
 
@@ -189,7 +148,6 @@ export default {
 
             if (instances.length > 0) {
                 this.apiOffset += instances.length;
-                // Use push with spread for better performance on large arrays
                 this.rawInstances.push(...instances);
                 this.processData();
             }
@@ -200,13 +158,8 @@ export default {
         }
     },
 
-    /**
-     * Process raw instances into grouped structure
-     */
     processData() {
         const groups = {};
-
-        // Build lookup maps from applications for GitHub info and logo
         const appInfoBySlug = {};
         const appInfoByName = {};
         for (const app of this.applications) {
@@ -273,7 +226,6 @@ export default {
             }
         }
 
-        // Convert Sets to sorted arrays
         for (const group of Object.values(groups)) {
             group.businessKeys = [...group.businessKeys].sort();
             group.resourceKeys = [...group.resourceKeys].sort();
@@ -283,9 +235,6 @@ export default {
         this.groupedInstances = groups;
     },
 
-    /**
-     * Get filtered applications based on search query
-     */
     get filteredApplications() {
         if (!this.searchQuery.trim()) {
             return this.applications;
@@ -296,9 +245,6 @@ export default {
         );
     },
 
-    /**
-     * Get total count for an app (from stats or loaded data)
-     */
     getAppTotalCount(appName) {
         if (this.stats.per_app_counts?.[appName] !== undefined) {
             return this.stats.per_app_counts[appName];
@@ -307,19 +253,14 @@ export default {
         return group ? group.instances.length : 0;
     },
 
-    /**
-     * Get displayed groups with pagination applied
-     */
     getDisplayedGroups() {
         const isSingleAppView = this.selectedApp !== null;
         let groups = this.groupedInstances;
 
-        // Filter by selected app
         if (isSingleAppView && this.groupedInstances[this.selectedApp]) {
             groups = { [this.selectedApp]: this.groupedInstances[this.selectedApp] };
         }
 
-        // Apply sidebar search filter
         if (this.searchQuery.trim()) {
             const query = this.searchQuery.toLowerCase();
             groups = Object.fromEntries(
@@ -357,9 +298,6 @@ export default {
         return result;
     },
 
-    /**
-     * Load more instances for a specific app (lazy loading)
-     */
     async loadMoreInstances(appName) {
         if (this.selectedApp === null) return;
 

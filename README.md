@@ -55,15 +55,15 @@ Display your SHM metrics in your README with embeddable SVG badges.
 
 #### Active Instances
 
-![Instances Badge](https://your-shm-server.example.com/badge/your-app/instances)
 
+![Instances](https://img.shields.io/badge/instances-260-00D084?style=flat-square)
 ```markdown
 ![Instances](https://your-shm-server.example.com/badge/your-app/instances)
 ```
 
 #### Most Used Version
 
-![Version Badge](https://your-shm-server.example.com/badge/your-app/version)
+![Version](https://img.shields.io/badge/version-1.2.0-8B5CF6?style=flat-square)
 
 ```markdown
 ![Version](https://your-shm-server.example.com/badge/your-app/version)
@@ -71,7 +71,7 @@ Display your SHM metrics in your README with embeddable SVG badges.
 
 #### Aggregated Metrics
 
-![Users Badge](https://your-shm-server.example.com/badge/your-app/metric/users_count)
+![Users](https://img.shields.io/badge/users-1.2k-00D084?style=flat-square)
 
 ```markdown
 ![Users](https://your-shm-server.example.com/badge/your-app/metric/users_count)
@@ -79,7 +79,7 @@ Display your SHM metrics in your README with embeddable SVG badges.
 
 #### Combined Stats
 
-![Adoption Badge](https://your-shm-server.example.com/badge/your-app/combined?metric=users_count)
+![Adoption](https://img.shields.io/badge/adoption-1.2k%20%2F%2042-6366F1?style=flat-square)
 
 ```markdown
 ![Adoption](https://your-shm-server.example.com/badge/your-app/combined?metric=users_count)
