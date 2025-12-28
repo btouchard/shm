@@ -11,6 +11,8 @@
 **Privacy-first, Agnostic Telemetry for Self-Hosted Software.**
 Collect usage stats, verify active instances, and understand your user base without spying on them.
 
+**Website** : https://self-hosted-metrics.com/
+
 [Features](#-features) • [Quick Start](#-quick-start) • [SDK Integration](#-sdk-integration) • [Architecture](#-architecture)
 
 </div>
