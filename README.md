@@ -47,6 +47,22 @@ When you distribute self-hosted software (on-premise), you fly blind. You don't 
 
 ---
 
+## 🗣️ Feedback & Real-World Usage
+
+SHM is young and evolving.
+If you are using it (even in dev), your feedback is extremely valuable.
+
+👉 Share your experience here:
+https://github.com/btouchard/shm/discussions
+
+What matters most:
+- real use cases
+- missing metrics
+- integration friction
+- what you'd expect before using it in production
+
+---
+
 ## 🎖️ Public Badges
 
 Display your SHM metrics in your README with embeddable SVG badges.
