@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // ApplicationID is a validated application identifier (UUID format).
@@ -189,6 +191,7 @@ func NewApplication(slug, name string) (*Application, error) {
 
 	now := time.Now().UTC()
 	return &Application{
+		ID:        ApplicationID(uuid.New().String()),
 		Slug:      appSlug,
 		Name:      name,
 		Stars:     0,
