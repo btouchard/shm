@@ -11,6 +11,8 @@
 **Privacy-first, Agnostic Telemetry for Self-Hosted Software.**
 Collect usage stats, verify active instances, and understand your user base without spying on them.
 
+**Website** : https://self-hosted-metrics.com/
+
 [Features](#-features) • [Quick Start](#-quick-start) • [SDK Integration](#-sdk-integration) • [Architecture](#-architecture)
 
 </div>
@@ -44,6 +46,22 @@ When you distribute self-hosted software (on-premise), you fly blind. You don't 
 - **🎨 Dynamic Dashboard:** Send `{"pizzas_eaten": 10}` and SHM automatically creates the KPI cards and table columns.
 - **⚙️ Ops vs Business Separation:** Automatically distinguishes between business metrics (KPIs) and system metrics (CPU, RAM, OS).
 - **🐳 Docker Native:** Runs anywhere with a simple `docker-compose`.
+
+---
+
+## 🗣️ Feedback & Real-World Usage
+
+SHM is young and evolving.
+If you are using it (even in dev), your feedback is extremely valuable.
+
+👉 Share your experience here:
+https://github.com/btouchard/shm/discussions
+
+What matters most:
+- real use cases
+- missing metrics
+- integration friction
+- what you'd expect before using it in production
 
 ---
 
